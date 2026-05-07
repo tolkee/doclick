@@ -9,8 +9,8 @@ doclick releases are fully automated by a single workflow at `.github/workflows/
 
 | Job | Runs on | What it does |
 |---|---|---|
-| `release-please` | `ubuntu-latest` | Maintains an open "Release PR" that bumps versions + writes CHANGELOG. When a Release PR merges, creates the `v<version>` tag + GitHub Release **as a draft** (`draft: true` in `release-please-config.json`). |
-| `build-windows` | `windows-latest` (only when `release-please` reports `release_created: true`) | Builds the NSIS installer via `tauri-action`, uploads it to the draft, then flips the release to published with a final `actions/github-script` step. Users only see the release once it has the installer attached. |
+| `release-please` | `ubuntu-latest` | Maintains an open "Release PR" that bumps versions + writes CHANGELOG. When a Release PR merges, pushes the `v<version>` tag and updates the manifest — but does NOT create a GitHub Release (`skip-github-release: true` in `release-please-config.json`). |
+| `build-windows` | `windows-latest` (only when `release-please` set a `tag_name` output) | Builds the NSIS installer via `tauri-action`, then creates the published GitHub Release at the existing tag with the `.exe` attached. tauri-action is the sole creator of the GH Release — there is no draft phase, no second-step "publish" call. The release appears once, with the installer already there. |
 
 The two jobs live in one workflow file deliberately: GitHub blocks `GITHUB_TOKEN`-pushed events from triggering separate workflows, so a tag-triggered build job never fires when release-please pushes the tag. Job-to-job `needs:` chaining sidesteps this.
 
@@ -23,9 +23,8 @@ The single human action is **using Conventional Commits**. Everything else is au
    - Bumps the version in `package.json`, `src-tauri/Cargo.toml`, `src-tauri/Cargo.lock`, and `src-tauri/tauri.conf.json`.
    - Updates `CHANGELOG.md` with grouped entries from the commits since the last release.
    - Updates `.release-please-manifest.json`.
-3. You review and merge the Release PR. Merging creates a `v<version>` git tag.
-4. `release.yml` fires on the tag, builds the NSIS `.exe` via `tauri-action`, and creates a **draft** GitHub Release with the installer attached.
-5. You open the draft on GitHub, edit notes if needed, click **Publish**.
+3. You review and merge the Release PR. Merging pushes a `v<version>` git tag.
+4. `release.yml` fires on the same push (job chained via `needs:`), builds the NSIS `.exe`, and `tauri-action` creates the published GitHub Release at the tag with the installer attached. No draft phase.
 
 ## Conventional Commit cheat sheet
 
