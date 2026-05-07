@@ -5,12 +5,14 @@ description: Use when committing or merging code in the doclick repo. doclick us
 
 # Release flow
 
-doclick releases are fully automated. Two GitHub Actions workflows do the work:
+doclick releases are fully automated by a single workflow at `.github/workflows/release.yml`. It runs on every push to `main` (and via `workflow_dispatch`) with two sequential jobs:
 
-| Workflow | Trigger | Job |
+| Job | Runs on | What it does |
 |---|---|---|
-| `.github/workflows/release-please.yml` | push to `main` | Maintains an open "Release PR" that bumps versions + writes CHANGELOG. |
-| `.github/workflows/release.yml` | git tag `v*` (created when the Release PR merges) | Builds the NSIS installer on `windows-latest` and uploads it to a draft GitHub Release. |
+| `release-please` | `ubuntu-latest` | Maintains an open "Release PR" that bumps versions + writes CHANGELOG. When a Release PR merges, creates the `v<version>` tag + GitHub Release. |
+| `build-windows` | `windows-latest` (only when `release-please` reports `release_created: true`) | Builds the NSIS installer via `tauri-action` and uploads it to the just-created GitHub Release. |
+
+The two jobs live in one workflow file deliberately: GitHub blocks `GITHUB_TOKEN`-pushed events from triggering separate workflows, so a tag-triggered build job never fires when release-please pushes the tag. Job-to-job `needs:` chaining sidesteps this.
 
 The single human action is **using Conventional Commits**. Everything else is automatic.
 
@@ -74,8 +76,7 @@ Manual override (rare):
 
 - [`release-please-config.json`](../../../release-please-config.json) — package definition + extra-files list
 - [`.release-please-manifest.json`](../../../.release-please-manifest.json) — current version per package
-- [`.github/workflows/release-please.yml`](../../../.github/workflows/release-please.yml) — runs the bot on every push to main
-- [`.github/workflows/release.yml`](../../../.github/workflows/release.yml) — builds NSIS installer on `v*` tag
+- [`.github/workflows/release.yml`](../../../.github/workflows/release.yml) — single workflow with two jobs: release-please (always runs on push to main), then build-windows (runs only when a release was just created)
 
 ## When NOT to use this flow
 
