@@ -91,8 +91,10 @@ impl Default for Orientation {
 
 /// Persisted user-resized overlay dimensions, per orientation. Stored in
 /// logical pixels so the size is DPI-independent across reboots / monitor
-/// swaps. Locked-axis values are still persisted as-is — the inner bar
-/// pins itself anyway.
+/// swaps. Each orientation's resize handle only adjusts the main axis
+/// (width in horizontal mode, height in vertical). The locked axis is
+/// recomputed at apply time, so its stored value is ignored; we keep both
+/// values for serialization stability.
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct OverlaySizes {
@@ -134,6 +136,7 @@ pub struct InnerState {
     pub pvp_warning_acknowledged: bool,
     pub overlay_position: Option<(i32, i32)>,
     pub overlay_sizes: OverlaySizes,
+    pub settings_size: Option<(u32, u32)>,
     pub main_character_id: Option<String>,
     pub profile_order: Vec<String>,
     pub orientation: Orientation,
@@ -153,6 +156,7 @@ impl Default for InnerState {
             pvp_warning_acknowledged: false,
             overlay_position: None,
             overlay_sizes: OverlaySizes::default(),
+            settings_size: None,
             main_character_id: None,
             profile_order: Vec::new(),
             orientation: Orientation::default(),
@@ -295,5 +299,6 @@ pub struct StateSnapshot {
     pub profile_order: Vec<String>,
     pub orientation: Orientation,
     pub overlay_sizes: OverlaySizes,
+    pub settings_size: Option<(u32, u32)>,
     pub shortcuts: ShortcutBindings,
 }

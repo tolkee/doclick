@@ -18,6 +18,7 @@ src-tauri/gen/
 
 # Claude Code harness state
 .claude/scheduled_tasks.lock
+.claude/worktrees/
 
 # Editor directories and files
 .vscode/*

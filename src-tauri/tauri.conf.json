@@ -12,21 +12,6 @@
   "app": {
     "windows": [
       {
-        "label": "main",
-        "title": "Doclick",
-        "url": "settings.html",
-        "width": 440,
-        "height": 720,
-        "minWidth": 380,
-        "minHeight": 560,
-        "decorations": false,
-        "transparent": true,
-        "resizable": true,
-        "skipTaskbar": false,
-        "shadow": false,
-        "center": true
-      },
-      {
         "label": "overlay",
         "title": "Doclick",
         "url": "index.html",
@@ -35,14 +20,13 @@
         "transparent": true,
         "skipTaskbar": true,
         "resizable": false,
-        "maximizable": false,
-        "minimizable": false,
+        "minimizable": true,
         "shadow": false,
         "focus": false,
         "acceptFirstMouse": true,
         "visible": false,
         "width": 1200,
-        "height": 64,
+        "height": 104,
         "x": 360,
         "y": 8
       }

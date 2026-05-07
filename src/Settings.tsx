@@ -1,6 +1,4 @@
 import { useEffect, useState } from "react";
-import { useDoclickStore } from "./store/useDoclickStore";
-import { onPrefsChanged, onWindowsChanged } from "./ipc/events";
 import { GlobalTab } from "./Settings/GlobalTab";
 import { CharactersTab } from "./Settings/CharactersTab";
 import { ShortcutsTab } from "./Settings/ShortcutsTab";
@@ -17,26 +15,21 @@ const TABS: { id: SettingsTabId; label: string }[] = [
   { id: "about", label: "À propos" },
 ];
 
-export default function Settings() {
-  const hydrate = useDoclickStore((s) => s.hydrate);
-  const [tab, setTab] = useState<SettingsTabId>("global");
+interface Props {
+  onBack: () => void;
+  initialTab?: SettingsTabId;
+}
+
+export default function Settings({ onBack, initialTab = "global" }: Props) {
+  const [tab, setTab] = useState<SettingsTabId>(initialTab);
 
   useEffect(() => {
-    hydrate();
-    const subs = [
-      onWindowsChanged((p) =>
-        useDoclickStore.setState({ windows: p.windows }),
-      ),
-      onPrefsChanged(() => hydrate()),
-    ];
-    return () => {
-      subs.forEach((s) => s.then((off) => off()));
-    };
-  }, [hydrate]);
+    setTab(initialTab);
+  }, [initialTab]);
 
   return (
     <main className="flex h-screen flex-col select-text overflow-hidden rounded-xl border border-border/50 bg-background text-foreground shadow-2xl">
-      <TitleBar title="Doclick" />
+      <TitleBar title="Doclick" onBack={onBack} />
       <Tabs
         value={tab}
         onValueChange={(v) => setTab(v as SettingsTabId)}

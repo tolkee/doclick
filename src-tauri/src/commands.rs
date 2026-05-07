@@ -46,6 +46,7 @@ pub fn persist(app: &AppHandle, state: &AppState) -> Result<(), CmdError> {
         pvp_warning_acknowledged: inner.pvp_warning_acknowledged,
         overlay_position: inner.overlay_position,
         overlay_sizes: inner.overlay_sizes,
+        settings_size: inner.settings_size,
         main_character_id: inner.main_character_id.clone(),
         profile_order: inner.profile_order.clone(),
         orientation: inner.orientation,
@@ -95,6 +96,7 @@ pub fn get_state_snapshot(state: State<'_, AppState>) -> StateSnapshot {
         profile_order: inner.profile_order.clone(),
         orientation: inner.orientation,
         overlay_sizes: inner.overlay_sizes,
+        settings_size: inner.settings_size,
         shortcuts: inner.shortcuts.clone(),
     }
 }
@@ -225,6 +227,18 @@ pub fn save_overlay_size(
             other => return Err(CmdError::Invalid(format!("orientation={other}"))),
         }
     }
+    persist(&app, &state)?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn save_settings_size(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    width: u32,
+    height: u32,
+) -> Result<(), CmdError> {
+    state.write().settings_size = Some((width, height));
     persist(&app, &state)?;
     Ok(())
 }

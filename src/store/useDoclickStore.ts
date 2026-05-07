@@ -1,6 +1,5 @@
 import { create } from "zustand";
 import * as cmd from "../ipc/commands";
-import { applyOverlaySize } from "../lib/overlaySize";
 import {
   EMPTY_SHORTCUT_BINDINGS,
   type BroadcastReason,
@@ -23,6 +22,7 @@ interface DoclickState {
   profileOrder: string[];
   orientation: Orientation;
   overlaySizes: OverlaySizes;
+  settingsSize: [number, number] | null;
   shortcuts: ShortcutBindings;
   broadcastKeys: number[];
   focusedHwnd: number | null;
@@ -54,6 +54,7 @@ interface DoclickState {
     width: number,
     height: number,
   ) => Promise<void>;
+  saveSettingsSize: (width: number, height: number) => Promise<void>;
   setShortcuts: (shortcuts: ShortcutBindings) => Promise<void>;
   setPanicHotkey: (accelerator: string) => Promise<void>;
   setBroadcastKeys: (keys: number[]) => Promise<void>;
@@ -71,6 +72,7 @@ export const useDoclickStore = create<DoclickState>((set, get) => ({
   profileOrder: [],
   orientation: "horizontal",
   overlaySizes: { horizontal: null, vertical: null },
+  settingsSize: null,
   shortcuts: EMPTY_SHORTCUT_BINDINGS,
   broadcastKeys: [],
   focusedHwnd: null,
@@ -94,6 +96,7 @@ export const useDoclickStore = create<DoclickState>((set, get) => ({
       profileOrder: snap.profile_order,
       orientation: snap.orientation,
       overlaySizes: snap.overlay_sizes ?? { horizontal: null, vertical: null },
+      settingsSize: snap.settings_size ?? null,
       shortcuts,
       broadcastKeys: snap.broadcast_keys,
       hydrated: true,
@@ -137,20 +140,19 @@ export const useDoclickStore = create<DoclickState>((set, get) => ({
   setOrientation: async (orientation) => {
     await cmd.setOrientation(orientation);
     set({ orientation });
-    const s = get();
-    const visibleCount = s.windows.filter((w) => w.profile != null).length;
-    const saved = s.overlaySizes[orientation];
-    applyOverlaySize({
-      orientation,
-      visibleCount,
-      override: saved ? { width: saved[0], height: saved[1] } : null,
-    });
+    // App.tsx applies the overlay window size in response to the
+    // orientation change — and skips it while the settings view is open
+    // so the user's edits aren't shrunk away mid-toggle.
   },
   saveOverlaySize: async (orientation, width, height) => {
     await cmd.saveOverlaySize(orientation, width, height);
     set((s) => ({
       overlaySizes: { ...s.overlaySizes, [orientation]: [width, height] },
     }));
+  },
+  saveSettingsSize: async (width, height) => {
+    await cmd.saveSettingsSize(width, height);
+    set({ settingsSize: [width, height] });
   },
   setShortcuts: async (shortcuts) => {
     const padded: ShortcutBindings = {

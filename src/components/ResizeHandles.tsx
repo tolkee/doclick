@@ -1,35 +1,41 @@
+import type { PointerEvent as ReactPointerEvent } from "react";
 import {
   getCurrentWindow,
   LogicalPosition,
   LogicalSize,
 } from "@tauri-apps/api/window";
-import { computeMinSize } from "../lib/overlaySize";
+import {
+  computeOverlayMinSize,
+  SETTINGS_MIN_SIZE,
+} from "../lib/overlaySize";
 import { useDoclickStore } from "../store/useDoclickStore";
-import type { Orientation } from "../types";
-
-interface Props {
-  orientation: Orientation;
-}
 
 type Direction = "East" | "West" | "North" | "South";
 
+/// Three resize "modes" decide which edges get a handle and where the
+/// final size gets persisted:
+///
+///   - `overlay-horizontal`: only E/W handles (width adjustable). The
+///     bar's height is locked; user-saved width persists to
+///     overlay_sizes.horizontal.
+///   - `overlay-vertical`: only N/S handles (height adjustable). The
+///     bar's width is locked; user-saved height persists to
+///     overlay_sizes.vertical.
+///   - `settings`: all four handles; full size persists to
+///     settings_size.
+export type ResizeMode = "overlay-horizontal" | "overlay-vertical" | "settings";
+
+interface Props {
+  mode: ResizeMode;
+}
+
 /// Custom edge resize for a transparent/decoration-less Tauri window.
-///
-/// The OS window has `resizable: false` so Windows does not add resize chrome
-/// to any edge — that prevents the locked-axis cursor + the "drag the left
-/// edge to move the window" behavior the user reported. This component then
-/// injects pointer-driven resize on the variable-axis edges only:
-///
-///   • horizontal → x-only via left/right edges (`ew-resize`)
-///   • vertical   → y-only via top/bottom edges (`ns-resize`)
-///
-/// For the West/North directions we also move the window position so the
-/// opposite edge stays anchored, which is what users expect from a window
-/// edge resize (drag the left edge → bar grows leftward).
-export function ResizeHandles({ orientation }: Props) {
+/// The OS window has `decorations: false` so Windows draws no native
+/// resize chrome; this component is the only resize affordance.
+export function ResizeHandles({ mode }: Props) {
   const start =
     (direction: Direction) =>
-    async (e: React.PointerEvent<HTMLDivElement>) => {
+    async (e: ReactPointerEvent<HTMLDivElement>) => {
       if (e.button !== 0) return;
       e.preventDefault();
       e.stopPropagation();
@@ -61,7 +67,7 @@ export function ResizeHandles({ orientation }: Props) {
 
       const startSx = e.screenX;
       const startSy = e.screenY;
-      const min = computeMinSize({ orientation, visibleCount: 0 });
+      const min = minSizeFor(mode);
 
       // Throttle setSize/setPosition IPC to one call per frame so a fast
       // mousemove doesn't queue dozens of redundant updates.
@@ -78,8 +84,8 @@ export function ResizeHandles({ orientation }: Props) {
         pendingFrame = null;
         const p = pending;
         if (!p) return;
-        // setPosition first for West/North so the right/bottom edge doesn't
-        // briefly overshoot before the size update lands.
+        // setPosition first for West/North so the right/bottom edge
+        // doesn't briefly overshoot before the size update lands.
         if (p.needsPos) {
           win.setPosition(new LogicalPosition(p.x, p.y)).catch(() => {});
         }
@@ -131,18 +137,8 @@ export function ResizeHandles({ orientation }: Props) {
         try {
           handle.releasePointerCapture(pointerId);
         } catch {}
-        // Persist the final dragged size for this orientation. Skip when
-        // the user clicked the handle without moving — `pending` stays
-        // null and there's nothing new to save.
         if (pending) {
-          useDoclickStore
-            .getState()
-            .saveOverlaySize(
-              orientation,
-              Math.round(pending.w),
-              Math.round(pending.h),
-            )
-            .catch(() => {});
+          persistFinalSize(mode, Math.round(pending.w), Math.round(pending.h));
         }
       };
 
@@ -151,39 +147,79 @@ export function ResizeHandles({ orientation }: Props) {
       handle.addEventListener("pointercancel", cleanup);
     };
 
-  if (orientation === "horizontal") {
+  if (mode === "overlay-horizontal") {
     return (
       <>
-        <div
-          onPointerDown={start("West")}
-          className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize z-30"
-          style={{ touchAction: "none" }}
-          aria-hidden
-        />
-        <div
-          onPointerDown={start("East")}
-          className="absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize z-30"
-          style={{ touchAction: "none" }}
-          aria-hidden
-        />
+        <Handle direction="West" cursor="ew-resize" axis="horizontal" onStart={start("West")} />
+        <Handle direction="East" cursor="ew-resize" axis="horizontal" onStart={start("East")} />
       </>
     );
   }
-
+  if (mode === "overlay-vertical") {
+    return (
+      <>
+        <Handle direction="North" cursor="ns-resize" axis="vertical" onStart={start("North")} />
+        <Handle direction="South" cursor="ns-resize" axis="vertical" onStart={start("South")} />
+      </>
+    );
+  }
+  // settings: all four edges
   return (
     <>
-      <div
-        onPointerDown={start("North")}
-        className="absolute top-0 left-0 right-0 h-2 cursor-ns-resize z-30"
-        style={{ touchAction: "none" }}
-        aria-hidden
-      />
-      <div
-        onPointerDown={start("South")}
-        className="absolute bottom-0 left-0 right-0 h-2 cursor-ns-resize z-30"
-        style={{ touchAction: "none" }}
-        aria-hidden
-      />
+      <Handle direction="North" cursor="ns-resize" axis="vertical" onStart={start("North")} />
+      <Handle direction="South" cursor="ns-resize" axis="vertical" onStart={start("South")} />
+      <Handle direction="West" cursor="ew-resize" axis="horizontal" onStart={start("West")} />
+      <Handle direction="East" cursor="ew-resize" axis="horizontal" onStart={start("East")} />
     </>
   );
+}
+
+function Handle({
+  direction,
+  cursor,
+  axis,
+  onStart,
+}: {
+  direction: Direction;
+  cursor: string;
+  axis: "horizontal" | "vertical";
+  onStart: (e: ReactPointerEvent<HTMLDivElement>) => void;
+}) {
+  const base =
+    axis === "horizontal"
+      ? "absolute top-0 bottom-0 w-2 z-30"
+      : "absolute left-0 right-0 h-2 z-30";
+  const edge =
+    direction === "North"
+      ? "top-0"
+      : direction === "South"
+      ? "bottom-0"
+      : direction === "East"
+      ? "right-0"
+      : "left-0";
+  return (
+    <div
+      onPointerDown={onStart}
+      className={`${base} ${edge}`}
+      style={{ cursor, touchAction: "none" }}
+      aria-hidden
+    />
+  );
+}
+
+function minSizeFor(mode: ResizeMode): { width: number; height: number } {
+  if (mode === "settings") return SETTINGS_MIN_SIZE;
+  return computeOverlayMinSize(
+    mode === "overlay-horizontal" ? "horizontal" : "vertical",
+  );
+}
+
+function persistFinalSize(mode: ResizeMode, width: number, height: number) {
+  const store = useDoclickStore.getState();
+  if (mode === "settings") {
+    store.saveSettingsSize(width, height).catch(() => {});
+    return;
+  }
+  const orientation = mode === "overlay-horizontal" ? "horizontal" : "vertical";
+  store.saveOverlaySize(orientation, width, height).catch(() => {});
 }
