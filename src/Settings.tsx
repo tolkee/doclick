@@ -17,7 +17,11 @@ const TABS: { id: SettingsTabId; label: string }[] = [
   { id: "about", label: "À propos" },
 ];
 
-export default function Settings() {
+interface Props {
+  onBack: () => void;
+}
+
+export default function Settings({ onBack }: Props) {
   const hydrate = useDoclickStore((s) => s.hydrate);
   const [tab, setTab] = useState<SettingsTabId>("global");
 
@@ -36,7 +40,7 @@ export default function Settings() {
 
   return (
     <main className="flex h-screen flex-col select-text overflow-hidden rounded-xl border border-border/50 bg-background text-foreground shadow-2xl">
-      <TitleBar title="Doclick" />
+      <TitleBar title="Doclick" onBack={onBack} />
       <Tabs
         value={tab}
         onValueChange={(v) => setTab(v as SettingsTabId)}

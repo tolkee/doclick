@@ -35,10 +35,7 @@ pub fn run() {
                 .build(),
         )
         .on_window_event(|window, event| {
-            // Closing any of our windows quits the whole app — neither the
-            // main window nor the overlay should outlive the other. The
-            // overlay has no decorations (no close button) so this fires
-            // when the user closes the main window from its custom titlebar.
+            // Closing the window from its custom TitleBar quits the app.
             if let tauri::WindowEvent::CloseRequested { .. } = event {
                 window.app_handle().exit(0);
             }
@@ -95,10 +92,9 @@ pub fn run() {
                 (None, None)
             };
 
-            // Restore overlay position + size if previously saved. The
-            // overlay starts hidden (configured in tauri.conf.json) and
-            // spawn_overlay_visibility decides when to show it based on the
-            // current foreground window.
+            // Restore overlay position + size if previously saved, then show
+            // the window. The overlay starts hidden in tauri.conf.json so the
+            // first paint happens at the restored size, not the conf default.
             if let Some(overlay) = handle.get_webview_window("overlay") {
                 if let Some((x, y)) = saved_position {
                     let _ = overlay.set_position(tauri::PhysicalPosition::new(x, y));
@@ -106,6 +102,7 @@ pub fn run() {
                 if let Some((w, h)) = saved_size {
                     let _ = overlay.set_size(tauri::LogicalSize::new(w, h));
                 }
+                let _ = overlay.show();
             }
 
             // Hook thread (low-level mouse + keyboard).
@@ -122,9 +119,6 @@ pub fn run() {
 
             // Focus tracker (emits which tracked Dofus window is focused, for the avatar bar).
             spawn_focus_tracker(handle.clone(), app_state.clone());
-
-            // Overlay visibility (auto-hide when no Dofus / app window focused).
-            spawn_overlay_visibility(handle.clone(), app_state.clone());
 
             // Register all configured global shortcuts (includes panic hotkey).
             shortcuts::reregister_all(&handle, &app_state);
@@ -185,66 +179,13 @@ fn spawn_focus_tracker(app: tauri::AppHandle, state: AppState) {
     });
 }
 
-/// HWNDs of every Tauri webview window we own (overlay, settings, ...).
-/// Used so the overlay doesn't auto-hide when the user clicks it (taking
-/// focus to the overlay itself), and so shortcuts keep working from the
-/// settings window.
+/// HWNDs of every Tauri webview window we own. Used by the foreground
+/// watchdog so clicking the overlay doesn't start the auto-disable countdown.
 pub fn app_hwnds(app: &tauri::AppHandle) -> Vec<isize> {
     app.webview_windows()
         .values()
         .filter_map(|w| w.hwnd().ok().map(|h| h.0 as isize))
         .collect()
-}
-
-fn spawn_overlay_visibility(app: tauri::AppHandle, state: AppState) {
-    // Hide after ~600ms of non-Dofus foreground (3 ticks at 200ms) to avoid
-    // flicker when alt-tabbing through other windows.
-    const HIDE_AFTER_TICKS: u32 = 3;
-    tauri::async_runtime::spawn(async move {
-        let mut interval = tokio::time::interval(Duration::from_millis(200));
-        // Overlay starts hidden (see tauri.conf.json `visible: false`); track
-        // that as our initial state so the first Dofus-foregrounded tick will
-        // call show().
-        let mut hidden = true;
-        let mut non_dofus_streak: u32 = 0;
-        let mut last_logged_fg: isize = 0;
-        loop {
-            interval.tick().await;
-            let fg = windows::focus::current_foreground();
-            let dofus_known = state.all_hwnds();
-            let app_known = app_hwnds(&app);
-            let allowed = dofus_known.contains(&fg) || app_known.contains(&fg);
-            if fg != last_logged_fg {
-                tracing::debug!(
-                    fg = format!("{fg:#x}"),
-                    dofus_count = dofus_known.len(),
-                    app_count = app_known.len(),
-                    allowed,
-                    "overlay-visibility: foreground changed"
-                );
-                last_logged_fg = fg;
-            }
-            if allowed {
-                if hidden {
-                    if let Some(overlay) = app.get_webview_window("overlay") {
-                        let _ = overlay.show();
-                        tracing::debug!("overlay-visibility: showing overlay");
-                    }
-                    hidden = false;
-                }
-                non_dofus_streak = 0;
-            } else {
-                non_dofus_streak = non_dofus_streak.saturating_add(1);
-                if non_dofus_streak >= HIDE_AFTER_TICKS && !hidden {
-                    if let Some(overlay) = app.get_webview_window("overlay") {
-                        let _ = overlay.hide();
-                        tracing::debug!("overlay-visibility: hiding overlay");
-                    }
-                    hidden = true;
-                }
-            }
-        }
-    });
 }
 
 fn spawn_foreground_watchdog(app: tauri::AppHandle, state: AppState) {

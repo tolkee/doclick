@@ -1,6 +1,5 @@
 import { create } from "zustand";
 import * as cmd from "../ipc/commands";
-import { applyOverlaySize } from "../lib/overlaySize";
 import {
   EMPTY_SHORTCUT_BINDINGS,
   type BroadcastReason,
@@ -137,14 +136,9 @@ export const useDoclickStore = create<DoclickState>((set, get) => ({
   setOrientation: async (orientation) => {
     await cmd.setOrientation(orientation);
     set({ orientation });
-    const s = get();
-    const visibleCount = s.windows.filter((w) => w.profile != null).length;
-    const saved = s.overlaySizes[orientation];
-    applyOverlaySize({
-      orientation,
-      visibleCount,
-      override: saved ? { width: saved[0], height: saved[1] } : null,
-    });
+    // App.tsx applies the overlay window size in response to the
+    // orientation change — and skips it while the settings view is open
+    // so the user's edits aren't shrunk away mid-toggle.
   },
   saveOverlaySize: async (orientation, width, height) => {
     await cmd.saveOverlaySize(orientation, width, height);

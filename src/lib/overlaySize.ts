@@ -33,22 +33,23 @@ export function computeSize({ orientation, visibleCount }: SizeArgs): {
     const count = Math.max(1, visibleCount);
     return {
       width: Math.max(600, HORIZONTAL_MIN_WIDTH + (count - 1) * CHIP_BLOCK),
-      height: HORIZONTAL_HEIGHT,
+      height: HORIZONTAL_HEIGHT + TITLEBAR_HEIGHT,
     };
   }
   const count = Math.max(1, visibleCount);
   return {
     width: VERTICAL_WIDTH,
-    height: VERTICAL_MIN_HEIGHT + (count - 1) * CHIP_BLOCK,
+    height: VERTICAL_MIN_HEIGHT + (count - 1) * CHIP_BLOCK + TITLEBAR_HEIGHT,
   };
 }
 
 // Window size constants. The locked axis (height in horizontal, width in
 // vertical) is pinned only by the inner wrapper's fixed dimension — the OS
-// window itself isn't capped, so the settings popover can freely grow the
-// window past the bar's locked side without fighting a setMaxSize cap. The
-// variable axis has a fixed minimum sized for the bar's controls plus one
-// chip slot; beyond that the avatar bar scrolls.
+// window itself isn't capped, so transient view switches (e.g. expanding
+// into the settings view) can freely grow the window past the bar's
+// locked side without fighting a setMaxSize cap. The variable axis has a
+// fixed minimum sized for the bar's controls plus one chip slot; beyond
+// that the avatar bar scrolls.
 
 /// Locked inner-bar height in horizontal mode. 68 = 8 outer padding + 52
 /// inner panel; the panel needs to be at least chip(44) + 2*4px padding so
@@ -58,6 +59,9 @@ export const HORIZONTAL_HEIGHT = 68;
 /// (`columnWidth + p-2 padding` in App.tsx) so the bar's right edge — and
 /// its rounded border — render fully inside the OS window.
 export const VERTICAL_WIDTH = 92;
+/// Height of the TitleBar (matches Tailwind `h-9`). Added on top of the
+/// inner bar in both orientations.
+export const TITLEBAR_HEIGHT = 36;
 
 /// Per-chip slot in the avatar bar (chip 44px + gap 12px).
 const CHIP_BLOCK = 56;
@@ -74,7 +78,18 @@ export function computeMinSize(args: SizeArgs): {
   height: number;
 } {
   if (args.orientation === "horizontal") {
-    return { width: HORIZONTAL_MIN_WIDTH, height: HORIZONTAL_HEIGHT };
+    return {
+      width: HORIZONTAL_MIN_WIDTH,
+      height: HORIZONTAL_HEIGHT + TITLEBAR_HEIGHT,
+    };
   }
-  return { width: VERTICAL_WIDTH, height: VERTICAL_MIN_HEIGHT };
+  return {
+    width: VERTICAL_WIDTH,
+    height: VERTICAL_MIN_HEIGHT + TITLEBAR_HEIGHT,
+  };
 }
+
+/// Default size for the settings view (matches the old "main" window
+/// dimensions). Applied transiently when the gear is clicked.
+export const SETTINGS_VIEW_SIZE = { width: 440, height: 720 };
+export const SETTINGS_VIEW_MIN_SIZE = { width: 380, height: 560 };
