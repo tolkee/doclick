@@ -14,9 +14,7 @@ jobs:
   release-please:
     runs-on: ubuntu-latest
     outputs:
-      release_created: ${{ steps.release.outputs.release_created }}
       tag_name: ${{ steps.release.outputs.tag_name }}
-      release_id: ${{ steps.release.outputs.id }}
     steps:
       - uses: googleapis/release-please-action@v4
         id: release
@@ -26,7 +24,10 @@ jobs:
 
   build-windows:
     needs: release-please
-    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    # release-please pushed the tag and (with skip-github-release) did NOT
+    # create a GitHub Release. Use tag_name as the trigger: non-empty when
+    # release-please bumped + tagged, empty on every other push to main.
+    if: ${{ needs.release-please.outputs.tag_name != '' }}
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -47,25 +48,16 @@ jobs:
       - name: Install JS dependencies
         run: bun install --frozen-lockfile
 
-      - name: Build and upload installer
+      - name: Build and create release
+        # tauri-action is the sole creator of the GitHub Release. Builds
+        # the NSIS installer, then creates a published release at the
+        # tag release-please pushed, with the .exe attached. The release
+        # appears once, with the installer already there.
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: ${{ needs.release-please.outputs.tag_name }}
           releaseName: "Doclick ${{ needs.release-please.outputs.tag_name }}"
+          releaseDraft: false
           tauriScript: bun run tauri
-
-      - name: Publish release
-        # release-please creates the release as a draft so users don't see
-        # an empty release on the Releases page while the installer is
-        # still building. Flip it to published once the .exe is uploaded.
-        uses: actions/github-script@v7
-        with:
-          script: |
-            await github.rest.repos.updateRelease({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              release_id: ${{ needs.release-please.outputs.release_id }},
-              draft: false,
-            });
