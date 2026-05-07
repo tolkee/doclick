@@ -16,6 +16,7 @@ jobs:
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
       tag_name: ${{ steps.release.outputs.tag_name }}
+      release_id: ${{ steps.release.outputs.id }}
     steps:
       - uses: googleapis/release-please-action@v4
         id: release
@@ -54,3 +55,17 @@ jobs:
           tagName: ${{ needs.release-please.outputs.tag_name }}
           releaseName: "Doclick ${{ needs.release-please.outputs.tag_name }}"
           tauriScript: bun run tauri
+
+      - name: Publish release
+        # release-please creates the release as a draft so users don't see
+        # an empty release on the Releases page while the installer is
+        # still building. Flip it to published once the .exe is uploaded.
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.repos.updateRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: ${{ needs.release-please.outputs.release_id }},
+              draft: false,
+            });

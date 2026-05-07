@@ -9,8 +9,8 @@ doclick releases are fully automated by a single workflow at `.github/workflows/
 
 | Job | Runs on | What it does |
 |---|---|---|
-| `release-please` | `ubuntu-latest` | Maintains an open "Release PR" that bumps versions + writes CHANGELOG. When a Release PR merges, creates the `v<version>` tag + GitHub Release. |
-| `build-windows` | `windows-latest` (only when `release-please` reports `release_created: true`) | Builds the NSIS installer via `tauri-action` and uploads it to the just-created GitHub Release. |
+| `release-please` | `ubuntu-latest` | Maintains an open "Release PR" that bumps versions + writes CHANGELOG. When a Release PR merges, creates the `v<version>` tag + GitHub Release **as a draft** (`draft: true` in `release-please-config.json`). |
+| `build-windows` | `windows-latest` (only when `release-please` reports `release_created: true`) | Builds the NSIS installer via `tauri-action`, uploads it to the draft, then flips the release to published with a final `actions/github-script` step. Users only see the release once it has the installer attached. |
 
 The two jobs live in one workflow file deliberately: GitHub blocks `GITHUB_TOKEN`-pushed events from triggering separate workflows, so a tag-triggered build job never fires when release-please pushes the tag. Job-to-job `needs:` chaining sidesteps this.
 
