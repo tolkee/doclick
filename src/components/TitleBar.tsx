@@ -29,7 +29,7 @@ export function TitleBar({ title }: { title?: string }) {
     >
       <div className="pointer-events-none flex items-center gap-2 px-3">
         <img
-          src="/logo-white.png"
+          src="/logo.png"
           alt=""
           className="h-4 w-4 shrink-0 select-none"
           draggable={false}
