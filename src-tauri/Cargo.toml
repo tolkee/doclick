@@ -1,6 +1,6 @@
 [package]
 name = "doclick"
-version = "0.1.0" # x-release-please-version
+version = "0.2.0" # x-release-please-version
 description = "Dofus 3 multi-account team helper overlay"
 authors = ["Tolkee"]
 edition = "2021"
