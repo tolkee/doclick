@@ -9,6 +9,7 @@ import { BroadcastToggle } from "./components/BroadcastToggle";
 import { PanicIndicator } from "./components/PanicIndicator";
 import { ResizeHandles } from "./components/ResizeHandles";
 import { TitleBar } from "./components/TitleBar";
+import { VerticalOverlayChrome } from "./components/VerticalOverlayChrome";
 import Settings, { type SettingsTabId } from "./Settings";
 import { saveOverlayPosition } from "./ipc/commands";
 import {
@@ -253,11 +254,7 @@ export default function App() {
   if (orientation === "vertical") {
     return (
       <div className="relative flex h-screen w-screen flex-col overflow-hidden rounded-xl border border-border/50 bg-background shadow-2xl">
-        <TitleBar
-          title="Doclick"
-          showMaximize={false}
-          onOpenSettings={() => enterSettings()}
-        />
+        <VerticalOverlayChrome onOpenSettings={() => enterSettings()} />
         <div className="relative flex flex-1 min-h-0 w-full flex-col items-stretch gap-2 px-2 py-2">
           <div className="flex-1 min-h-0 w-full">
             <AvatarBar onOpenCharacters={openCharacters} />

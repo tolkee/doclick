@@ -15,6 +15,9 @@ export const HORIZONTAL_BAR_HEIGHT = 64;
 /// padding so the chip's focus ring renders fully.
 export const VERTICAL_BAR_WIDTH = 76;
 
+/// Vertical overlay chrome height: window actions, settings, and divider.
+export const VERTICAL_TOPBAR_HEIGHT = 84;
+
 /// Per-chip slot in the avatar bar (chip 44px + gap 12px).
 const CHIP_BLOCK = 56;
 
@@ -88,11 +91,12 @@ export function computeOverlaySize(args: OverlaySizeArgs): {
   }
   const chipsAxis = count > 0 ? count * CHIP_BLOCK : VERTICAL_EMPTY_MAIN_AXIS;
   const minHeight =
-    TITLEBAR_HEIGHT + VERTICAL_CONTROLS_HEIGHT + VERTICAL_EMPTY_MAIN_AXIS;
+    VERTICAL_TOPBAR_HEIGHT + VERTICAL_CONTROLS_HEIGHT + VERTICAL_EMPTY_MAIN_AXIS;
   return {
     width: VERTICAL_BAR_WIDTH,
     height: Math.max(
-      args.savedMainAxis ?? TITLEBAR_HEIGHT + VERTICAL_CONTROLS_HEIGHT + chipsAxis,
+      args.savedMainAxis ??
+        VERTICAL_TOPBAR_HEIGHT + VERTICAL_CONTROLS_HEIGHT + chipsAxis,
       minHeight,
     ),
   };
@@ -113,7 +117,8 @@ export function computeOverlayMinSize(orientation: Orientation): {
   }
   return {
     width: VERTICAL_BAR_WIDTH,
-    height: TITLEBAR_HEIGHT + VERTICAL_CONTROLS_HEIGHT + VERTICAL_EMPTY_MAIN_AXIS,
+    height:
+      VERTICAL_TOPBAR_HEIGHT + VERTICAL_CONTROLS_HEIGHT + VERTICAL_EMPTY_MAIN_AXIS,
   };
 }
 
