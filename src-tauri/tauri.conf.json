@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "doclick",
+  "productName": "Doclick",
   "version": "0.2.0",
   "identifier": "dev.tolkee.doclick",
   "build": {
@@ -12,8 +12,22 @@
   "app": {
     "windows": [
       {
+        "label": "main",
+        "title": "Doclick",
+        "url": "settings.html",
+        "width": 440,
+        "height": 720,
+        "minWidth": 380,
+        "minHeight": 560,
+        "decorations": false,
+        "transparent": true,
+        "resizable": true,
+        "skipTaskbar": false,
+        "center": true
+      },
+      {
         "label": "overlay",
-        "title": "doclick",
+        "title": "Doclick",
         "url": "index.html",
         "alwaysOnTop": true,
         "decorations": false,
@@ -25,6 +39,7 @@
         "shadow": false,
         "focus": false,
         "acceptFirstMouse": true,
+        "visible": false,
         "width": 1200,
         "height": 64,
         "x": 360,
