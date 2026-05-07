@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { ArrowLeft, Minus, Square, Copy, X } from "lucide-react";
+import { ArrowLeft, Minus, Settings as SettingsIcon, Square, Copy, X } from "lucide-react";
 
 interface TitleBarProps {
   title?: string;
@@ -8,12 +8,15 @@ interface TitleBarProps {
   /// when clicked. The arrow replaces the leading drag-region — the rest
   /// of the bar (around the title) is still draggable.
   onBack?: () => void;
+  /// When provided, render a gear button on the right cluster (just
+  /// before the minimize button).
+  onOpenSettings?: () => void;
   /// Default true. Pass `false` in overlay view: maximizing an
   /// always-on-top transparent panel to fullscreen is a footgun.
   showMaximize?: boolean;
 }
 
-export function TitleBar({ title, onBack, showMaximize = true }: TitleBarProps) {
+export function TitleBar({ title, onBack, onOpenSettings, showMaximize = true }: TitleBarProps) {
   const win = getCurrentWindow();
   const [maximized, setMaximized] = useState(false);
 
@@ -65,6 +68,11 @@ export function TitleBar({ title, onBack, showMaximize = true }: TitleBarProps) 
         )}
       </div>
       <div className="ml-auto flex items-center">
+        {onOpenSettings && (
+          <TitleBarButton onClick={onOpenSettings} ariaLabel="Paramètres">
+            <SettingsIcon className="h-3.5 w-3.5" strokeWidth={2} />
+          </TitleBarButton>
+        )}
         <TitleBarButton onClick={() => win.minimize()} ariaLabel="Minimiser">
           <Minus className="h-3.5 w-3.5" strokeWidth={2} />
         </TitleBarButton>

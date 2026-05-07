@@ -6,6 +6,6 @@ export function PanicIndicator() {
   const live = useDoclickStore((s) => s.broadcastLive);
   if (!live) return null;
   return (
-    <div className="pointer-events-none absolute inset-0 broadcast-live-frame rounded-2xl" />
+    <div className="pointer-events-none absolute inset-0 broadcast-live-frame rounded-xl" />
   );
 }

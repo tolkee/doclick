@@ -38,6 +38,9 @@ export const saveOverlayPosition = (x: number, y: number) =>
 export const saveOverlaySize = (orientation: Orientation, width: number, height: number) =>
   invoke<void>("save_overlay_size", { orientation, width, height });
 
+export const saveSettingsSize = (width: number, height: number) =>
+  invoke<void>("save_settings_size", { width, height });
+
 export const setMainCharacter = (id: string | null) =>
   invoke<void>("set_main_character", { id });
 

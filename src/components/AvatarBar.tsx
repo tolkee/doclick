@@ -3,7 +3,13 @@ import { useDoclickStore } from "../store/useDoclickStore";
 import type { WindowEntry } from "../types";
 import { CharacterChip } from "./CharacterChip";
 
-export function AvatarBar() {
+interface Props {
+  /// Open Settings → Personnages. Used by the empty-state CTA when there
+  /// are unimported Dofus windows.
+  onOpenCharacters: () => void;
+}
+
+export function AvatarBar({ onOpenCharacters }: Props) {
   const orientation = useDoclickStore((s) => s.orientation);
   const windows = useDoclickStore((s) => s.windows);
   const profileOrder = useDoclickStore((s) => s.profileOrder);
@@ -16,9 +22,23 @@ export function AvatarBar() {
   );
 
   if (visible.length === 0) {
+    if (windows.length === 0) {
+      return (
+        <div className="flex h-full w-full items-center justify-center px-2 text-center text-[11px] text-muted-foreground">
+          Aucune fenêtre Dofus ouverte
+        </div>
+      );
+    }
     return (
-      <div className="text-[11px] text-zinc-400 italic px-2 text-center">
-        Aucun personnage importé.
+      <div className="flex h-full w-full items-center justify-center gap-2 px-2 text-center text-[11px] text-muted-foreground">
+        <span>Aucun personnage importé</span>
+        <button
+          type="button"
+          onClick={onOpenCharacters}
+          className="rounded-md bg-foreground/10 px-2 py-0.5 text-foreground/90 hover:bg-foreground/20"
+        >
+          Importer
+        </button>
       </div>
     );
   }

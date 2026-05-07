@@ -54,6 +54,7 @@ pub fn run() {
             commands::cycle_focus,
             commands::save_overlay_position,
             commands::save_overlay_size,
+            commands::save_settings_size,
             commands::set_main_character,
             commands::set_profile_order,
             commands::set_orientation,
@@ -78,6 +79,7 @@ pub fn run() {
                 inner.pvp_warning_acknowledged = cfg.pvp_warning_acknowledged;
                 inner.overlay_position = cfg.overlay_position;
                 inner.overlay_sizes = cfg.overlay_sizes;
+                inner.settings_size = cfg.settings_size;
                 inner.main_character_id = cfg.main_character_id;
                 inner.profile_order = cfg.profile_order;
                 inner.orientation = cfg.orientation;
@@ -96,8 +98,13 @@ pub fn run() {
             // the window. The overlay starts hidden in tauri.conf.json so the
             // first paint happens at the restored size, not the conf default.
             if let Some(overlay) = handle.get_webview_window("overlay") {
+                // -32000 is the Win32 sentinel for a minimized window's
+                // GetWindowPos result. Skip restoring such a position so
+                // we don't spawn the window offscreen.
                 if let Some((x, y)) = saved_position {
-                    let _ = overlay.set_position(tauri::PhysicalPosition::new(x, y));
+                    if x > -32000 && y > -32000 {
+                        let _ = overlay.set_position(tauri::PhysicalPosition::new(x, y));
+                    }
                 }
                 if let Some((w, h)) = saved_size {
                     let _ = overlay.set_size(tauri::LogicalSize::new(w, h));

@@ -20,14 +20,13 @@
         "transparent": true,
         "skipTaskbar": true,
         "resizable": false,
-        "maximizable": false,
         "minimizable": true,
         "shadow": false,
         "focus": false,
         "acceptFirstMouse": true,
         "visible": false,
         "width": 1200,
-        "height": 100,
+        "height": 104,
         "x": 360,
         "y": 8
       }

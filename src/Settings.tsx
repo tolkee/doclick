@@ -19,11 +19,12 @@ const TABS: { id: SettingsTabId; label: string }[] = [
 
 interface Props {
   onBack: () => void;
+  initialTab?: SettingsTabId;
 }
 
-export default function Settings({ onBack }: Props) {
+export default function Settings({ onBack, initialTab = "global" }: Props) {
   const hydrate = useDoclickStore((s) => s.hydrate);
-  const [tab, setTab] = useState<SettingsTabId>("global");
+  const [tab, setTab] = useState<SettingsTabId>(initialTab);
 
   useEffect(() => {
     hydrate();

@@ -63,6 +63,7 @@ export interface StateSnapshot {
   profile_order: string[];
   orientation: Orientation;
   overlay_sizes: OverlaySizes;
+  settings_size: [number, number] | null;
   shortcuts: ShortcutBindings;
 }
 
