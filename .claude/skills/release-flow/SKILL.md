@@ -64,7 +64,9 @@ Manual override (rare):
 
 ## Common pitfalls
 
-- **Lockfiles getting stale.** `Cargo.lock` is bumped by release-please's cargo updater; `bun.lock` does not contain the workspace version, so it doesn't need bumping. If a future Bun version starts encoding the workspace version, drop `--frozen-lockfile` from `release.yml` and add `bun.lock` as an extra-file.
+- **`x-release-please-version` annotation in `src-tauri/Cargo.toml`.** The version line ends with `# x-release-please-version` — that's how release-please's generic updater finds it. **Do not strip the comment.** If the line ever gets reformatted (e.g. `cargo fmt` or an auto-edit), version bumps stop working silently. release-please's TOML support doesn't extend to `extra-files` in v17, hence the comment-based annotation.
+- **`Cargo.lock` is not auto-bumped.** Cargo regenerates the workspace version field on `cargo build`, so the CI release build produces a consistent binary. The merged main branch will briefly carry a stale `Cargo.lock` until the next local build commits an update — harmless.
+- **`bun.lock`** does not encode the workspace version, so it doesn't need bumping. If a future Bun version starts encoding it, drop `--frozen-lockfile` from `release.yml` and add `bun.lock` as an extra-file.
 - **Release PR doesn't appear after merging to `main`.** Check that the merged PR's title (or the squashed commit message) starts with a Conventional prefix. `release-please` ignores non-Conventional commits — they don't trigger a release.
 - **Tag created but no release artifact.** The `release.yml` workflow needs `contents: write` (it does). If the Windows runner fails, check Bun + Rust setup steps; the cache key may need busting.
 
