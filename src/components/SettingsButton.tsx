@@ -10,41 +10,14 @@ const MENU_EXPANDED_HEIGHT = 280;
 // Horizontal space the popover needs in vertical layout (column + gap + menu body).
 const MENU_EXPANDED_WIDTH = 320;
 
-// Module-level guard — React StrictMode mounts effects twice in dev, so
-// both copies race past the `getByLabel` check before either WebviewWindow
-// registers, opening two settings windows. We dedupe here.
-let _settingsOpening: Promise<void> | null = null;
-
-export function openSettings(): Promise<void> {
-  if (_settingsOpening) return _settingsOpening;
-  _settingsOpening = (async () => {
-    try {
-      const existing = await WebviewWindow.getByLabel("settings");
-      if (existing) {
-        await existing.show();
-        await existing.setFocus();
-        return;
-      }
-      new WebviewWindow("settings", {
-        url: "settings.html",
-        title: "Doclick - Paramètres",
-        width: 440,
-        height: 720,
-        resizable: true,
-        decorations: false,
-        transparent: true,
-        alwaysOnTop: false,
-        skipTaskbar: false,
-      });
-    } finally {
-      // Give the new window time to register so the next call's getByLabel
-      // can find it instead of starting a duplicate.
-      setTimeout(() => {
-        _settingsOpening = null;
-      }, 750);
-    }
-  })();
-  return _settingsOpening;
+// The main window is now persistent (declared in tauri.conf.json), so this
+// just brings it back to the foreground if the user had it minimized.
+export async function openSettings(): Promise<void> {
+  const win = await WebviewWindow.getByLabel("main");
+  if (!win) return;
+  await win.show();
+  await win.unminimize();
+  await win.setFocus();
 }
 
 export function SettingsButton() {

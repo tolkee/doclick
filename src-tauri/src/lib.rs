@@ -34,6 +34,15 @@ pub fn run() {
                 .with_handler(shortcuts::dispatch)
                 .build(),
         )
+        .on_window_event(|window, event| {
+            // Closing any of our windows quits the whole app — neither the
+            // main window nor the overlay should outlive the other. The
+            // overlay has no decorations (no close button) so this fires
+            // when the user closes the main window from its custom titlebar.
+            if let tauri::WindowEvent::CloseRequested { .. } = event {
+                window.app_handle().exit(0);
+            }
+        })
         .manage(app_state.clone())
         .invoke_handler(tauri::generate_handler![
             commands::list_windows,
@@ -86,11 +95,10 @@ pub fn run() {
                 (None, None)
             };
 
-            // Restore overlay position + size if previously saved, then make
-            // sure the window is visible. We saw cases where the window came
-            // up hidden after a config-format change; calling show()
-            // defensively guards against that without changing legitimate
-            // user state.
+            // Restore overlay position + size if previously saved. The
+            // overlay starts hidden (configured in tauri.conf.json) and
+            // spawn_overlay_visibility decides when to show it based on the
+            // current foreground window.
             if let Some(overlay) = handle.get_webview_window("overlay") {
                 if let Some((x, y)) = saved_position {
                     let _ = overlay.set_position(tauri::PhysicalPosition::new(x, y));
@@ -98,8 +106,6 @@ pub fn run() {
                 if let Some((w, h)) = saved_size {
                     let _ = overlay.set_size(tauri::LogicalSize::new(w, h));
                 }
-                let _ = overlay.show();
-                let _ = overlay.unminimize();
             }
 
             // Hook thread (low-level mouse + keyboard).
@@ -196,7 +202,10 @@ fn spawn_overlay_visibility(app: tauri::AppHandle, state: AppState) {
     const HIDE_AFTER_TICKS: u32 = 3;
     tauri::async_runtime::spawn(async move {
         let mut interval = tokio::time::interval(Duration::from_millis(200));
-        let mut hidden = false;
+        // Overlay starts hidden (see tauri.conf.json `visible: false`); track
+        // that as our initial state so the first Dofus-foregrounded tick will
+        // call show().
+        let mut hidden = true;
         let mut non_dofus_streak: u32 = 0;
         let mut last_logged_fg: isize = 0;
         loop {

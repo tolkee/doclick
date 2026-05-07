@@ -16,6 +16,9 @@ dist-ssr
 src-tauri/target/
 src-tauri/gen/
 
+# Claude Code harness state
+.claude/scheduled_tasks.lock
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

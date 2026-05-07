@@ -36,7 +36,7 @@ export default function Settings() {
 
   return (
     <main className="flex h-screen flex-col select-text overflow-hidden rounded-xl border border-border/50 bg-background text-foreground shadow-2xl">
-      <TitleBar title="Doclick - Paramètres" />
+      <TitleBar title="Doclick" />
       <Tabs
         value={tab}
         onValueChange={(v) => setTab(v as SettingsTabId)}
