@@ -18,7 +18,7 @@ export function GlobalTab({ onNavigate }: Props) {
     <div className="space-y-6 max-w-2xl">
       <header className="space-y-3">
         <img
-          src="/logo-white.png"
+          src="/logo.png"
           alt="Doclick"
           className="h-16 w-16 select-none"
           draggable={false}
