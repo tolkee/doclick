@@ -91,11 +91,10 @@ impl Default for Orientation {
 
 /// Persisted user-resized overlay dimensions, per orientation. Stored in
 /// logical pixels so the size is DPI-independent across reboots / monitor
-/// swaps. Each orientation's resize handle only adjusts the cross axis
-/// (height in horizontal mode, width in vertical) — the main axis
-/// auto-fits the imported character chips. The non-resizable axis is
-/// recomputed at apply time from chip count, so its value here is
-/// effectively ignored; we still store both for serialization stability.
+/// swaps. Each orientation's resize handle only adjusts the main axis
+/// (width in horizontal mode, height in vertical). The locked axis is
+/// recomputed at apply time, so its stored value is ignored; we keep both
+/// values for serialization stability.
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct OverlaySizes {

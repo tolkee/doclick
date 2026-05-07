@@ -38,6 +38,20 @@ const VERTICAL_EMPTY_MAIN_AXIS = 240;
 export const SETTINGS_DEFAULT_SIZE = { width: 440, height: 720 };
 export const SETTINGS_MIN_SIZE = { width: 380, height: 560 };
 
+/// A saved settings size is "valid" if it's at least the minimum on both
+/// axes. Anything smaller is treated as poisoned (e.g. left over from a
+/// pre-fix bug where the overlay's dimensions leaked into settings_size)
+/// and the caller should fall back to SETTINGS_DEFAULT_SIZE.
+export function isValidSettingsSize(s: [number, number] | null): boolean {
+  return (
+    s != null &&
+    Number.isFinite(s[0]) &&
+    Number.isFinite(s[1]) &&
+    s[0] >= SETTINGS_MIN_SIZE.width &&
+    s[1] >= SETTINGS_MIN_SIZE.height
+  );
+}
+
 // =================== Overlay view ===================
 
 /// The overlay's *cross axis* is locked to the bar's natural size:
@@ -63,16 +77,24 @@ export function computeOverlaySize(args: OverlaySizeArgs): {
   if (args.orientation === "horizontal") {
     const chipsAxis =
       count > 0 ? count * CHIP_BLOCK : HORIZONTAL_EMPTY_MAIN_AXIS;
+    const minWidth = HORIZONTAL_CONTROLS_WIDTH + HORIZONTAL_EMPTY_MAIN_AXIS;
     return {
-      width: args.savedMainAxis ?? HORIZONTAL_CONTROLS_WIDTH + chipsAxis,
+      width: Math.max(
+        args.savedMainAxis ?? HORIZONTAL_CONTROLS_WIDTH + chipsAxis,
+        minWidth,
+      ),
       height: TITLEBAR_HEIGHT + HORIZONTAL_BAR_HEIGHT,
     };
   }
   const chipsAxis = count > 0 ? count * CHIP_BLOCK : VERTICAL_EMPTY_MAIN_AXIS;
+  const minHeight =
+    TITLEBAR_HEIGHT + VERTICAL_CONTROLS_HEIGHT + VERTICAL_EMPTY_MAIN_AXIS;
   return {
     width: VERTICAL_BAR_WIDTH,
-    height:
+    height: Math.max(
       args.savedMainAxis ?? TITLEBAR_HEIGHT + VERTICAL_CONTROLS_HEIGHT + chipsAxis,
+      minHeight,
+    ),
   };
 }
 

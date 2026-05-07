@@ -1,6 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { ArrowLeft, Minus, Settings as SettingsIcon, Square, Copy, X } from "lucide-react";
+import {
+  ArrowLeft,
+  Copy,
+  Minus,
+  Settings as SettingsIcon,
+  Square,
+  X,
+} from "lucide-react";
 
 interface TitleBarProps {
   title?: string;
@@ -16,7 +23,12 @@ interface TitleBarProps {
   showMaximize?: boolean;
 }
 
-export function TitleBar({ title, onBack, onOpenSettings, showMaximize = true }: TitleBarProps) {
+export function TitleBar({
+  title,
+  onBack,
+  onOpenSettings,
+  showMaximize = true,
+}: TitleBarProps) {
   const win = getCurrentWindow();
   const [maximized, setMaximized] = useState(false);
 
@@ -112,7 +124,7 @@ function TitleBarButton({
   onClick: () => void;
   ariaLabel: string;
   danger?: boolean;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <button

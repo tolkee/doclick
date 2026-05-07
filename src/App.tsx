@@ -24,6 +24,7 @@ import {
   computeOverlayMinSize,
   computeOverlaySize,
   HORIZONTAL_BAR_HEIGHT,
+  isValidSettingsSize,
   SETTINGS_DEFAULT_SIZE,
   SETTINGS_MIN_SIZE,
 } from "./lib/overlaySize";
@@ -39,9 +40,12 @@ export default function App() {
   const [view, setView] = useState<View>("overlay");
   const [settingsTab, setSettingsTab] = useState<SettingsTabId>("global");
   // Mirrored in a ref for closures (event listeners, debounced callbacks)
-  // that capture stale state.
-  const viewRef = useRef<View>(view);
-  viewRef.current = view;
+  // that capture stale state. Transition handlers update it before resizing
+  // so late Tauri resize events are attributed to the destination view.
+  const viewRef = useRef<View>("overlay");
+  useEffect(() => {
+    viewRef.current = view;
+  }, [view]);
   // Snapshot of the overlay's position taken when entering settings, so
   // exiting can restore exactly where the bar sat. Size is *not*
   // snapshotted — it's fully derived from store state by the size
@@ -60,25 +64,34 @@ export default function App() {
       // Apply size BEFORE flipping view so the settings UI never paints
       // at overlay dimensions (no flash). Order: enable resize so the
       // current overlay min doesn't clamp, set new min, then set size.
-      const target =
-        useDoclickStore.getState().settingsSize ??
-        ([SETTINGS_DEFAULT_SIZE.width, SETTINGS_DEFAULT_SIZE.height] as [number, number]);
+      // Reject saved sizes smaller than SETTINGS_MIN_SIZE — they can only
+      // come from poisoned cache (older builds occasionally persisted the
+      // overlay's dimensions as settings_size on view transitions).
+      const saved = useDoclickStore.getState().settingsSize;
+      const target: [number, number] = isValidSettingsSize(saved)
+        ? (saved as [number, number])
+        : [SETTINGS_DEFAULT_SIZE.width, SETTINGS_DEFAULT_SIZE.height];
       await win.setResizable(true);
       await win.setMinSize(
         new LogicalSize(SETTINGS_MIN_SIZE.width, SETTINGS_MIN_SIZE.height),
       );
       await win.setSize(new LogicalSize(target[0], target[1]));
+      viewRef.current = "settings";
+      setView("settings");
       await win.setAlwaysOnTop(false);
       await win.setSkipTaskbar(false);
       await win.setFocus();
     } catch (err) {
       console.warn("enterSettings failed", err);
     }
-    setView("settings");
   }, []);
 
   const exitSettings = useCallback(async () => {
     if (viewRef.current === "overlay") return;
+    // Mark the destination view before the programmatic shrink. The settings
+    // resize listener may still be subscribed for a moment, and must not
+    // persist the overlay's thin dimensions as settings_size.
+    viewRef.current = "overlay";
     const win = getCurrentWindow();
     const snap = overlayPositionSnapshot.current;
     const state = useDoclickStore.getState();
@@ -91,8 +104,8 @@ export default function App() {
       savedMainAxis: savedMainAxis(state.overlaySizes, orientation),
     });
     try {
-      await win.setSize(new LogicalSize(size.width, size.height));
       await win.setMinSize(new LogicalSize(min.width, min.height));
+      await win.setSize(new LogicalSize(size.width, size.height));
       await win.setResizable(false);
       await win.setAlwaysOnTop(true);
       await win.setSkipTaskbar(true);
@@ -177,8 +190,8 @@ export default function App() {
           savedMainAxis: savedMainAxis(overlaySizes, orientation),
         });
         const min = computeOverlayMinSize(orientation);
-        await win.setSize(new LogicalSize(size.width, size.height));
         await win.setMinSize(new LogicalSize(min.width, min.height));
+        await win.setSize(new LogicalSize(size.width, size.height));
         await win.setResizable(false);
       } catch (err) {
         console.warn("apply overlay size failed", err);
@@ -196,15 +209,24 @@ export default function App() {
     const win = getCurrentWindow();
     let timer: number | null = null;
     const unlistenP = win.onResized(({ payload }) => {
+      // Skip resize events that arrive after we've already left settings
+      // view (e.g. exitSettings's setSize(overlaySize) firing late while
+      // the async unlisten hasn't completed yet). Without this guard the
+      // overlay's tiny dimensions would be persisted as settings_size and
+      // applied on every subsequent open.
+      if (viewRef.current !== "settings") return;
       if (timer !== null) window.clearTimeout(timer);
       timer = window.setTimeout(async () => {
+        if (viewRef.current !== "settings") return;
         try {
           const factor = await win.scaleFactor();
           const w = Math.round(payload.width / factor);
           const h = Math.round(payload.height / factor);
+          const next: [number, number] = [w, h];
+          if (!isValidSettingsSize(next)) return;
           const cur = useDoclickStore.getState().settingsSize;
           if (cur && cur[0] === w && cur[1] === h) return;
-          await useDoclickStore.getState().saveSettingsSize(w, h);
+          await useDoclickStore.getState().saveSettingsSize(next[0], next[1]);
         } catch {}
       }, 250);
     });

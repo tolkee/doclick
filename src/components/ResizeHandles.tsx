@@ -1,3 +1,4 @@
+import type { PointerEvent as ReactPointerEvent } from "react";
 import {
   getCurrentWindow,
   LogicalPosition,
@@ -34,7 +35,7 @@ interface Props {
 export function ResizeHandles({ mode }: Props) {
   const start =
     (direction: Direction) =>
-    async (e: React.PointerEvent<HTMLDivElement>) => {
+    async (e: ReactPointerEvent<HTMLDivElement>) => {
       if (e.button !== 0) return;
       e.preventDefault();
       e.stopPropagation();
@@ -182,7 +183,7 @@ function Handle({
   direction: Direction;
   cursor: string;
   axis: "horizontal" | "vertical";
-  onStart: (e: React.PointerEvent<HTMLDivElement>) => void;
+  onStart: (e: ReactPointerEvent<HTMLDivElement>) => void;
 }) {
   const base =
     axis === "horizontal"
