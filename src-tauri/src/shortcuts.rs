@@ -8,9 +8,7 @@ use tauri_plugin_global_shortcut::{
 };
 
 use crate::commands;
-use crate::events::{
-    emit_or_log, BroadcastStatePayload, EVT_BROADCAST_STATE, EVT_OPEN_SETTINGS,
-};
+use crate::events::{emit_or_log, BroadcastStatePayload, EVT_BROADCAST_STATE, EVT_OPEN_SETTINGS};
 use crate::state::{AppState, BroadcastReason, ShortcutBindings};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -132,9 +130,13 @@ fn register_one(
     match parsed {
         ParsedShortcut::Keyboard(s) => {
             if kbd.contains_key(&s) {
-                tracing::warn!(accel, ?action, "duplicate keyboard shortcut, last write wins");
+                tracing::warn!(
+                    accel,
+                    ?action,
+                    "duplicate keyboard shortcut, last write wins"
+                );
             }
-            if let Err(err) = app.global_shortcut().register(s.clone()) {
+            if let Err(err) = app.global_shortcut().register(s) {
                 tracing::warn!(?err, accel, ?action, "failed to register keyboard shortcut");
                 return;
             }
@@ -174,9 +176,9 @@ pub fn dispatch(app: &AppHandle, shortcut: &Shortcut, event: ShortcutEvent) {
 /// in the foreground.
 pub fn should_run(app: &AppHandle, action: ShortcutAction) -> bool {
     match action {
-        ShortcutAction::PanicHotkey
-        | ShortcutAction::OpenSettings
-        | ShortcutAction::CloseApp => return true,
+        ShortcutAction::PanicHotkey | ShortcutAction::OpenSettings | ShortcutAction::CloseApp => {
+            return true
+        }
         _ => {}
     }
     let state = match app.try_state::<AppState>() {
@@ -307,6 +309,84 @@ fn mouse_trigger_from_str(s: &str) -> Option<MouseTrigger> {
     })
 }
 
+fn code_from_str(s: &str) -> Option<Code> {
+    Some(match s.to_ascii_uppercase().as_str() {
+        "F1" => Code::F1,
+        "F2" => Code::F2,
+        "F3" => Code::F3,
+        "F4" => Code::F4,
+        "F5" => Code::F5,
+        "F6" => Code::F6,
+        "F7" => Code::F7,
+        "F8" => Code::F8,
+        "F9" => Code::F9,
+        "F10" => Code::F10,
+        "F11" => Code::F11,
+        "F12" => Code::F12,
+        "ESC" | "ESCAPE" => Code::Escape,
+        "SPACE" => Code::Space,
+        "ENTER" | "RETURN" => Code::Enter,
+        "TAB" => Code::Tab,
+        "BACKSPACE" => Code::Backspace,
+        "DELETE" | "DEL" => Code::Delete,
+        "LEFT" => Code::ArrowLeft,
+        "RIGHT" => Code::ArrowRight,
+        "UP" => Code::ArrowUp,
+        "DOWN" => Code::ArrowDown,
+        s if s.len() == 1 => {
+            let c = s.chars().next()?;
+            if c.is_ascii_alphabetic() {
+                match c.to_ascii_uppercase() {
+                    'A' => Code::KeyA,
+                    'B' => Code::KeyB,
+                    'C' => Code::KeyC,
+                    'D' => Code::KeyD,
+                    'E' => Code::KeyE,
+                    'F' => Code::KeyF,
+                    'G' => Code::KeyG,
+                    'H' => Code::KeyH,
+                    'I' => Code::KeyI,
+                    'J' => Code::KeyJ,
+                    'K' => Code::KeyK,
+                    'L' => Code::KeyL,
+                    'M' => Code::KeyM,
+                    'N' => Code::KeyN,
+                    'O' => Code::KeyO,
+                    'P' => Code::KeyP,
+                    'Q' => Code::KeyQ,
+                    'R' => Code::KeyR,
+                    'S' => Code::KeyS,
+                    'T' => Code::KeyT,
+                    'U' => Code::KeyU,
+                    'V' => Code::KeyV,
+                    'W' => Code::KeyW,
+                    'X' => Code::KeyX,
+                    'Y' => Code::KeyY,
+                    'Z' => Code::KeyZ,
+                    _ => return None,
+                }
+            } else if c.is_ascii_digit() {
+                match c {
+                    '0' => Code::Digit0,
+                    '1' => Code::Digit1,
+                    '2' => Code::Digit2,
+                    '3' => Code::Digit3,
+                    '4' => Code::Digit4,
+                    '5' => Code::Digit5,
+                    '6' => Code::Digit6,
+                    '7' => Code::Digit7,
+                    '8' => Code::Digit8,
+                    '9' => Code::Digit9,
+                    _ => return None,
+                }
+            } else {
+                return None;
+            }
+        }
+        _ => return None,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -365,57 +445,4 @@ mod tests {
     fn modifiers_alone_is_not_a_shortcut() {
         assert!(parse_shortcut("Ctrl+Shift").is_none());
     }
-}
-
-fn code_from_str(s: &str) -> Option<Code> {
-    Some(match s.to_ascii_uppercase().as_str() {
-        "F1" => Code::F1,
-        "F2" => Code::F2,
-        "F3" => Code::F3,
-        "F4" => Code::F4,
-        "F5" => Code::F5,
-        "F6" => Code::F6,
-        "F7" => Code::F7,
-        "F8" => Code::F8,
-        "F9" => Code::F9,
-        "F10" => Code::F10,
-        "F11" => Code::F11,
-        "F12" => Code::F12,
-        "ESC" | "ESCAPE" => Code::Escape,
-        "SPACE" => Code::Space,
-        "ENTER" | "RETURN" => Code::Enter,
-        "TAB" => Code::Tab,
-        "BACKSPACE" => Code::Backspace,
-        "DELETE" | "DEL" => Code::Delete,
-        "LEFT" => Code::ArrowLeft,
-        "RIGHT" => Code::ArrowRight,
-        "UP" => Code::ArrowUp,
-        "DOWN" => Code::ArrowDown,
-        s if s.len() == 1 => {
-            let c = s.chars().next()?;
-            if c.is_ascii_alphabetic() {
-                match c.to_ascii_uppercase() {
-                    'A' => Code::KeyA, 'B' => Code::KeyB, 'C' => Code::KeyC, 'D' => Code::KeyD,
-                    'E' => Code::KeyE, 'F' => Code::KeyF, 'G' => Code::KeyG, 'H' => Code::KeyH,
-                    'I' => Code::KeyI, 'J' => Code::KeyJ, 'K' => Code::KeyK, 'L' => Code::KeyL,
-                    'M' => Code::KeyM, 'N' => Code::KeyN, 'O' => Code::KeyO, 'P' => Code::KeyP,
-                    'Q' => Code::KeyQ, 'R' => Code::KeyR, 'S' => Code::KeyS, 'T' => Code::KeyT,
-                    'U' => Code::KeyU, 'V' => Code::KeyV, 'W' => Code::KeyW, 'X' => Code::KeyX,
-                    'Y' => Code::KeyY, 'Z' => Code::KeyZ,
-                    _ => return None,
-                }
-            } else if c.is_ascii_digit() {
-                match c {
-                    '0' => Code::Digit0, '1' => Code::Digit1, '2' => Code::Digit2,
-                    '3' => Code::Digit3, '4' => Code::Digit4, '5' => Code::Digit5,
-                    '6' => Code::Digit6, '7' => Code::Digit7, '8' => Code::Digit8,
-                    '9' => Code::Digit9,
-                    _ => return None,
-                }
-            } else {
-                return None;
-            }
-        }
-        _ => return None,
-    })
 }

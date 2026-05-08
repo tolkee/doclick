@@ -179,10 +179,7 @@ pub fn delete_profile(
 }
 
 #[tauri::command]
-pub fn acknowledge_pvp_warning(
-    app: AppHandle,
-    state: State<'_, AppState>,
-) -> Result<(), CmdError> {
+pub fn acknowledge_pvp_warning(app: AppHandle, state: State<'_, AppState>) -> Result<(), CmdError> {
     state.write().pvp_warning_acknowledged = true;
     persist(&app, &state)?;
     Ok(())
@@ -320,10 +317,7 @@ pub fn set_shortcuts(
 }
 
 #[tauri::command]
-pub fn focus_character_at_index(
-    state: State<'_, AppState>,
-    index: usize,
-) -> Result<(), CmdError> {
+pub fn focus_character_at_index(state: State<'_, AppState>, index: usize) -> Result<(), CmdError> {
     let hwnds = state.ordered_visible_hwnds();
     if let Some(&hwnd) = hwnds.get(index) {
         let _ = focus_window(hwnd, std::time::Duration::from_millis(120));
@@ -350,11 +344,7 @@ pub fn focus_main_character(state: State<'_, AppState>) -> Result<(), CmdError> 
         let main_id = inner.main_character_id.clone();
         match main_id {
             Some(id) => {
-                let title_match = inner
-                    .profiles
-                    .iter()
-                    .find(|p| p.id == id)
-                    .cloned();
+                let title_match = inner.profiles.iter().find(|p| p.id == id).cloned();
                 title_match.and_then(|p| {
                     inner
                         .live_windows

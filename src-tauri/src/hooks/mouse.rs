@@ -138,9 +138,7 @@ unsafe fn trigger_from_message(msg: u32, l_param: LPARAM) -> Option<MouseTrigger
 }
 
 fn current_modifiers() -> u8 {
-    let pressed = |vk: VIRTUAL_KEY| {
-        (unsafe { GetAsyncKeyState(vk.0 as i32) } as u16) & 0x8000 != 0
-    };
+    let pressed = |vk: VIRTUAL_KEY| (unsafe { GetAsyncKeyState(vk.0 as i32) } as u16) & 0x8000 != 0;
     let mut m = 0u8;
     if pressed(VK_CONTROL) {
         m |= MOD_CTRL;

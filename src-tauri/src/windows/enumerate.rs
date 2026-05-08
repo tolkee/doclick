@@ -52,7 +52,10 @@ unsafe extern "system" fn enum_proc(hwnd: HWND, lparam: LPARAM) -> BOOL {
         Some(name) => name,
         None => return true.into(),
     };
-    if !DOFUS_PROCESS_NAMES.iter().any(|n| n.eq_ignore_ascii_case(&exe)) {
+    if !DOFUS_PROCESS_NAMES
+        .iter()
+        .any(|n| n.eq_ignore_ascii_case(&exe))
+    {
         return true.into();
     }
 
@@ -145,6 +148,26 @@ fn read_class_name(hwnd: HWND) -> String {
     }
 }
 
+fn process_basename(pid: u32) -> Option<String> {
+    unsafe {
+        let handle = OpenProcess(
+            PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ,
+            false,
+            pid,
+        )
+        .or_else(|_| OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid))
+        .ok()?;
+        let mut buf = vec![0u16; MAX_PATH as usize];
+        let copied = GetModuleBaseNameW(handle, None, &mut buf);
+        let _ = windows::Win32::Foundation::CloseHandle(handle);
+        if copied == 0 {
+            return None;
+        }
+        let s = String::from_utf16_lossy(&buf[..copied as usize]);
+        Some(PathBuf::from(s).file_name()?.to_string_lossy().to_string())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -191,25 +214,5 @@ mod tests {
             Some("Spaced".into())
         );
         assert_eq!(super::parse_character_name("No segments"), None);
-    }
-}
-
-fn process_basename(pid: u32) -> Option<String> {
-    unsafe {
-        let handle = OpenProcess(
-            PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ,
-            false,
-            pid,
-        )
-        .or_else(|_| OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid))
-        .ok()?;
-        let mut buf = vec![0u16; MAX_PATH as usize];
-        let copied = GetModuleBaseNameW(handle, None, &mut buf);
-        let _ = windows::Win32::Foundation::CloseHandle(handle);
-        if copied == 0 {
-            return None;
-        }
-        let s = String::from_utf16_lossy(&buf[..copied as usize]);
-        Some(PathBuf::from(s).file_name()?.to_string_lossy().to_string())
     }
 }

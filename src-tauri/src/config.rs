@@ -76,7 +76,10 @@ pub fn load(app_data_dir: &Path) -> PersistedConfig {
             cfg
         }
         Err(err) => {
-            tracing::warn!(?err, "config: failed to parse profiles.json, using defaults");
+            tracing::warn!(
+                ?err,
+                "config: failed to parse profiles.json, using defaults"
+            );
             PersistedConfig::default()
         }
     }

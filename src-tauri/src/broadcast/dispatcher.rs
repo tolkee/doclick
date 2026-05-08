@@ -134,19 +134,19 @@ fn dispatch_one(
     // Translate before focusing the target — shrinks the focus-to-SendInput
     // window during which foreground drift can drop the click.
     let translated_click = match job {
-        BroadcastJob::Click { screen_x, screen_y, .. } => {
-            match translate_click(source_hwnd, target_hwnd, *screen_x, *screen_y) {
-                Some(coords) => Some(coords),
-                None => {
-                    tracing::warn!(
-                        target = format!("{target_hwnd:#x}"),
-                        reason = "translate_failed",
-                        "dispatcher: coord translation failed (window minimized or just closed?)"
-                    );
-                    return false;
-                }
+        BroadcastJob::Click {
+            screen_x, screen_y, ..
+        } => match translate_click(source_hwnd, target_hwnd, *screen_x, *screen_y) {
+            Some(coords) => Some(coords),
+            None => {
+                tracing::warn!(
+                    target = format!("{target_hwnd:#x}"),
+                    reason = "translate_failed",
+                    "dispatcher: coord translation failed (window minimized or just closed?)"
+                );
+                return false;
             }
-        }
+        },
         BroadcastJob::Key { .. } => None,
     };
 
@@ -267,7 +267,11 @@ fn send_click(screen_x: i32, screen_y: i32, timings: &BroadcastTimings) -> bool 
     move_ok && down_ok && up_ok
 }
 
-fn mouse_input(dx: i32, dy: i32, flags: windows::Win32::UI::Input::KeyboardAndMouse::MOUSE_EVENT_FLAGS) -> INPUT {
+fn mouse_input(
+    dx: i32,
+    dy: i32,
+    flags: windows::Win32::UI::Input::KeyboardAndMouse::MOUSE_EVENT_FLAGS,
+) -> INPUT {
     INPUT {
         r#type: INPUT_MOUSE,
         Anonymous: INPUT_0 {
