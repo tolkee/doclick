@@ -1,8 +1,8 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Capabilities for the doclick overlay window",
-  "windows": ["overlay"],
+  "description": "Capabilities for the doclick overlay and menu windows",
+  "windows": ["overlay", "menu"],
   "permissions": [
     "core:default",
     "core:window:allow-start-dragging",

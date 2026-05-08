@@ -29,6 +29,27 @@
         "height": 104,
         "x": 360,
         "y": 8
+      },
+      {
+        "label": "menu",
+        "title": "Doclick Menu",
+        "url": "index.html",
+        "alwaysOnTop": true,
+        "decorations": false,
+        "transparent": true,
+        "skipTaskbar": true,
+        "resizable": false,
+        "minimizable": false,
+        "maximizable": false,
+        "closable": false,
+        "shadow": true,
+        "focus": false,
+        "acceptFirstMouse": true,
+        "visible": false,
+        "width": 160,
+        "height": 96,
+        "x": 0,
+        "y": 0
       }
     ],
     "security": {

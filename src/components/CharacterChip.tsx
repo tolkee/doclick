@@ -35,6 +35,7 @@ export function CharacterChip({ entry }: Props) {
   return (
     <button
       onClick={() => focusWindow(entry.hwnd)}
+      data-tauri-drag-region="false"
       className="group relative flex-none rounded-full hover:brightness-110 transition"
       title={`${name}${className ? ` — ${className}` : ""}\n${entry.title}`}
     >

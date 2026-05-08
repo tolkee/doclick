@@ -115,7 +115,7 @@ export function TitleBar({
   );
 }
 
-function TitleBarButton({
+export function TitleBarButton({
   onClick,
   ariaLabel,
   danger,

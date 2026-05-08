@@ -1,14 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  getCurrentWindow,
-  LogicalPosition,
-  LogicalSize,
-} from "@tauri-apps/api/window";
+import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 import { AvatarBar } from "./components/AvatarBar";
 import { BroadcastToggle } from "./components/BroadcastToggle";
+import { KebabButton } from "./components/KebabButton";
 import { PanicIndicator } from "./components/PanicIndicator";
 import { ResizeHandles } from "./components/ResizeHandles";
-import { TitleBar } from "./components/TitleBar";
 import { VerticalOverlayChrome } from "./components/VerticalOverlayChrome";
 import Settings, { type SettingsTabId } from "./Settings";
 import { saveOverlayPosition } from "./ipc/commands";
@@ -47,21 +43,12 @@ export default function App() {
   useEffect(() => {
     viewRef.current = view;
   }, [view]);
-  // Snapshot of the overlay's position taken when entering settings, so
-  // exiting can restore exactly where the bar sat. Size is *not*
-  // snapshotted — it's fully derived from store state by the size
-  // effect below, so settings dimensions can never bleed into the
-  // overlay (and vice versa).
-  const overlayPositionSnapshot = useRef<{ x: number; y: number } | null>(null);
 
   const enterSettings = useCallback(async (tab: SettingsTabId = "global") => {
     setSettingsTab(tab);
     if (viewRef.current === "settings") return;
     const win = getCurrentWindow();
     try {
-      const factor = await win.scaleFactor();
-      const pos = (await win.outerPosition()).toLogical(factor);
-      overlayPositionSnapshot.current = { x: pos.x, y: pos.y };
       // Apply size BEFORE flipping view so the settings UI never paints
       // at overlay dimensions (no flash). Order: enable resize so the
       // current overlay min doesn't clamp, set new min, then set size.
@@ -79,8 +66,6 @@ export default function App() {
       await win.setSize(new LogicalSize(target[0], target[1]));
       viewRef.current = "settings";
       setView("settings");
-      await win.setAlwaysOnTop(false);
-      await win.setSkipTaskbar(false);
       await win.setFocus();
     } catch (err) {
       console.warn("enterSettings failed", err);
@@ -94,7 +79,6 @@ export default function App() {
     // persist the overlay's thin dimensions as settings_size.
     viewRef.current = "overlay";
     const win = getCurrentWindow();
-    const snap = overlayPositionSnapshot.current;
     const state = useDoclickStore.getState();
     const orientation = state.orientation;
     const visibleCount = state.windows.filter((w) => w.profile != null).length;
@@ -108,11 +92,6 @@ export default function App() {
       await win.setMinSize(new LogicalSize(min.width, min.height));
       await win.setSize(new LogicalSize(size.width, size.height));
       await win.setResizable(false);
-      await win.setAlwaysOnTop(true);
-      await win.setSkipTaskbar(true);
-      if (snap) {
-        await win.setPosition(new LogicalPosition(snap.x, snap.y));
-      }
     } catch (err) {
       console.warn("exitSettings failed", err);
     }
@@ -143,12 +122,11 @@ export default function App() {
       onPrefsChanged(() => hydrate()),
     ];
 
-    // Persist overlay position on move (debounced). Only while in
-    // overlay view — dragging the larger settings window must not
-    // clobber the persisted overlay_position.
+    // Persist window position on move (debounced). Overlay and settings
+    // are the same Tauri window, so its position is shared between
+    // views — moves in either view persist to the same overlay_position.
     const win = getCurrentWindow();
     const moveUnlistenP = win.onMoved(({ payload }) => {
-      if (viewRef.current !== "overlay") return;
       // Win32 reports `-32000` for both axes while a window is
       // minimized — never persist that as the overlay's position, or
       // the window will spawn offscreen on next launch.
@@ -246,16 +224,21 @@ export default function App() {
     );
   }
 
-  // Overlay view. Outer card matches the settings window's chrome:
-  // solid bg, `rounded-xl`, `border-border/50`, `shadow-2xl`. The
-  // TitleBar and the bar below sit flush as one block.
   const openCharacters = () => enterSettings("characters");
 
   if (orientation === "vertical") {
     return (
       <div className="relative flex h-screen w-screen flex-col overflow-hidden rounded-xl border border-border/50 bg-background shadow-2xl">
-        <VerticalOverlayChrome onOpenSettings={() => enterSettings()} />
-        <div className="relative flex flex-1 min-h-0 w-full flex-col items-stretch gap-2 px-2 py-2">
+        <VerticalOverlayChrome />
+        <div
+          onMouseDown={(e) => {
+            if (e.button !== 0) return;
+            const t = e.target as HTMLElement;
+            if (t.closest('button, [data-tauri-drag-region="false"]')) return;
+            void getCurrentWindow().startDragging();
+          }}
+          className="drag-surface relative flex flex-1 min-h-0 w-full flex-col items-stretch gap-2 px-2 py-2"
+        >
           <div className="flex-1 min-h-0 w-full">
             <AvatarBar onOpenCharacters={openCharacters} />
           </div>
@@ -272,12 +255,8 @@ export default function App() {
 
   return (
     <div className="relative flex h-screen w-screen flex-col overflow-hidden rounded-xl border border-border/50 bg-background shadow-2xl">
-      <TitleBar
-        title="Doclick"
-        showMaximize={false}
-        onOpenSettings={() => enterSettings()}
-      />
       <div
+        data-tauri-drag-region
         className="relative flex items-center gap-2 w-full px-3"
         style={{ height: HORIZONTAL_BAR_HEIGHT }}
       >
@@ -286,6 +265,8 @@ export default function App() {
         <div className="flex-1 min-w-0">
           <AvatarBar onOpenCharacters={openCharacters} />
         </div>
+        <div className="w-px h-8 bg-border/60 mx-1" />
+        <KebabButton anchor="below-right" />
       </div>
       <PanicIndicator />
       <ResizeHandles mode="overlay-horizontal" />
