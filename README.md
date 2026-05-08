@@ -1,4 +1,4 @@
-<p align="center"><img src="public/logo.png" alt="doclick logo" width="96" /></p>
+<p align="center"><img src="public/logo_black.png" alt="doclick logo" width="96" /></p>
 
 # doclick
 
