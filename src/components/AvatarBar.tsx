@@ -65,6 +65,7 @@ export function AvatarBar({ onOpenCharacters }: Props) {
         <button
           type="button"
           onClick={onOpenCharacters}
+          data-tauri-drag-region="false"
           className="inline-flex h-6 items-center justify-center rounded-md bg-foreground/10 px-2 text-foreground/90 hover:bg-foreground/20"
         >
           Importer

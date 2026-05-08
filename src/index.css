@@ -124,14 +124,17 @@ body {
   display: none;
 }
 
-/* Drag-region cursors. Tauri's drag.js auto-excludes clickable elements
-   (BUTTON, A, INPUT, etc.), so the panel-wide drag region is safe — we
-   just mirror that distinction in the cursor: grab over draggable surface,
-   pointer over interactive elements. */
-[data-tauri-drag-region] {
+/* Grab cursor over draggable surfaces — covers both Tauri's attribute-
+   based drag regions (settings TitleBar, horizontal overlay bar) and
+   the class-based hook used by the vertical overlay's programmatic
+   drag wrapper. Interactive descendants (buttons, inputs) reset to
+   default so chips/broadcast/kebab don't inherit the grab. */
+[data-tauri-drag-region]:not([data-tauri-drag-region="false"]),
+.drag-surface {
   cursor: grab;
 }
-[data-tauri-drag-region]:active {
+[data-tauri-drag-region]:not([data-tauri-drag-region="false"]):active,
+.drag-surface:active {
   cursor: grabbing;
 }
 [data-tauri-drag-region] button,
@@ -139,11 +142,13 @@ body {
 [data-tauri-drag-region] input,
 [data-tauri-drag-region] select,
 [data-tauri-drag-region] textarea,
-[data-tauri-drag-region] label,
-[data-tauri-drag-region] [role="button"] {
-  cursor: pointer;
-}
-[data-tauri-drag-region="false"] {
+[data-tauri-drag-region] [data-tauri-drag-region="false"],
+.drag-surface button,
+.drag-surface a,
+.drag-surface input,
+.drag-surface select,
+.drag-surface textarea,
+.drag-surface [data-tauri-drag-region="false"] {
   cursor: default;
 }
 
