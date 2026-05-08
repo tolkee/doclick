@@ -19,7 +19,6 @@ import { useDoclickStore } from "../store/useDoclickStore";
 import { avatarUrlFor, classDisplayName } from "../lib/dofusClass";
 import type { CharacterProfile, WindowEntry } from "../types";
 import { Button } from "../components/ui/button";
-import { Badge } from "../components/ui/badge";
 import { cn } from "@/lib/utils";
 
 function newId(): string {
@@ -262,18 +261,10 @@ function ImportableRow({ entry, onImport }: ImportableRowProps) {
       <CharacterAvatar src={avatar} className={cls} />
       <div className="flex flex-1 flex-col leading-tight">
         <span className="truncate text-sm font-medium">{guessedName}</span>
-        <span
-          className="truncate text-xs text-muted-foreground"
-          title={entry.title}
-        >
-          {entry.title}
-        </span>
+        {cls && (
+          <span className="truncate text-xs text-muted-foreground">{cls}</span>
+        )}
       </div>
-      {cls ? (
-        <Badge variant="secondary" className="hidden sm:inline-flex">
-          {cls}
-        </Badge>
-      ) : null}
       <Button size="sm" onClick={onImport}>
         <Download />
         Importer
