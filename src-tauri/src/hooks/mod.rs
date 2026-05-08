@@ -24,7 +24,7 @@ pub fn app_handle() -> Option<AppHandle> {
 /// Install both low-level hooks on a dedicated thread that runs a Win32
 /// message pump. Hooks fire on the installer's thread, and that thread MUST
 /// pump messages or the hook callbacks never run.
-pub fn install(state: AppState, app: AppHandle) {
+pub fn install(state: AppState, app: AppHandle) -> std::io::Result<()> {
     let _ = GLOBAL_STATE.set(state);
     let _ = APP_HANDLE.set(app);
 
@@ -42,7 +42,6 @@ pub fn install(state: AppState, app: AppHandle) {
             }
 
             let mut msg = MSG::default();
-            // Pump messages forever; the process exits when Tauri exits.
             while GetMessageW(&mut msg, None, 0, 0).as_bool() {
                 let _ = TranslateMessage(&msg);
                 DispatchMessageW(&msg);
@@ -54,6 +53,6 @@ pub fn install(state: AppState, app: AppHandle) {
             if let Some(h) = kbd_hook {
                 let _ = UnhookWindowsHookEx(h);
             }
-        })
-        .expect("spawn hook thread");
+        })?;
+    Ok(())
 }

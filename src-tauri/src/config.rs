@@ -91,3 +91,69 @@ pub fn save(app_data_dir: &Path, cfg: &PersistedConfig) -> std::io::Result<()> {
     std::fs::rename(tmp, path)?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::state::{CharacterProfile, MatchStrategy, Role};
+    use tempfile::TempDir;
+
+    fn sample_profile() -> CharacterProfile {
+        CharacterProfile {
+            id: "abc".into(),
+            display_name: "Tolkee".into(),
+            role: Role::Follower,
+            match_strategy: MatchStrategy::WindowTitleContains("Tolkee".into()),
+            dofus_class: Some("iop".into()),
+        }
+    }
+
+    #[test]
+    fn load_missing_file_returns_default() {
+        let dir = TempDir::new().unwrap();
+        let cfg = load(dir.path());
+        assert!(cfg.profiles.is_empty());
+        assert_eq!(cfg.panic_hotkey, "Ctrl+Shift+F12");
+        assert_eq!(cfg.shortcuts.focus_char.len(), 8);
+    }
+
+    #[test]
+    fn save_then_load_round_trips() {
+        let dir = TempDir::new().unwrap();
+        let mut cfg = PersistedConfig::default();
+        cfg.profiles.push(sample_profile());
+        cfg.overlay_position = Some((100, 200));
+        cfg.overlay_sizes.horizontal = Some((1200, 104));
+        cfg.main_character_id = Some("abc".into());
+        cfg.profile_order.push("abc".into());
+
+        save(dir.path(), &cfg).unwrap();
+        let loaded = load(dir.path());
+
+        assert_eq!(loaded.profiles.len(), 1);
+        assert_eq!(loaded.profiles[0].id, "abc");
+        assert_eq!(loaded.overlay_position, Some((100, 200)));
+        assert_eq!(loaded.overlay_sizes.horizontal, Some((1200, 104)));
+        assert_eq!(loaded.main_character_id.as_deref(), Some("abc"));
+        assert_eq!(loaded.profile_order, vec!["abc".to_string()]);
+    }
+
+    #[test]
+    fn legacy_role_main_deserializes_as_follower() {
+        let dir = TempDir::new().unwrap();
+        let json = r#"{"profiles":[{"id":"x","display_name":"X","role":"main","match_strategy":{"kind":"WindowTitleContains","value":"X"}}]}"#;
+        std::fs::write(dir.path().join("profiles.json"), json).unwrap();
+        let cfg = load(dir.path());
+        assert_eq!(cfg.profiles.len(), 1);
+        assert_eq!(cfg.profiles[0].role, Role::Follower);
+    }
+
+    #[test]
+    fn malformed_json_falls_back_to_defaults() {
+        let dir = TempDir::new().unwrap();
+        std::fs::write(dir.path().join("profiles.json"), "{ not valid json").unwrap();
+        let cfg = load(dir.path());
+        assert!(cfg.profiles.is_empty());
+        assert!(!cfg.broadcast_keys.is_empty());
+    }
+}

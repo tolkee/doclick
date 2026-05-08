@@ -1,6 +1,20 @@
 use serde::Serialize;
+use tauri::Emitter;
 
 use crate::state::{BroadcastReason, WindowEntry};
+
+/// Emit an event and log a warning on failure.
+///
+/// Tauri's `emit` returns `Result`, but every emission failure in this app
+/// is informational (a watcher updating the UI, a status change). We never
+/// want a failed emit to crash a worker thread, but we also never want it
+/// to disappear silently — silent emit failures hide IPC channel breakage
+/// during reload, window teardown, and similar edge cases.
+pub fn emit_or_log<P: Serialize + Clone>(app: &tauri::AppHandle, event: &str, payload: P) {
+    if let Err(e) = app.emit(event, payload) {
+        tracing::warn!(?e, event, "failed to emit event");
+    }
+}
 
 pub const EVT_WINDOWS_CHANGED: &str = "windows-changed";
 pub const EVT_BROADCAST_STATE: &str = "broadcast-state-changed";

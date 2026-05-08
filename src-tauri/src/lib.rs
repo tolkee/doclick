@@ -1,6 +1,8 @@
+#![deny(unsafe_op_in_unsafe_fn)]
+
 use std::time::Duration;
 
-use tauri::{Emitter, Manager};
+use tauri::Manager;
 
 mod broadcast;
 mod commands;
@@ -11,7 +13,9 @@ mod shortcuts;
 mod state;
 mod windows;
 
-use crate::events::{BroadcastStatePayload, FocusedWindowChangedPayload, WindowsChangedPayload};
+use crate::events::{
+    emit_or_log, BroadcastStatePayload, FocusedWindowChangedPayload, WindowsChangedPayload,
+};
 use crate::state::{AppState, BroadcastReason, Orientation};
 use crate::windows::geometry::enable_per_monitor_dpi_awareness;
 
@@ -35,7 +39,6 @@ pub fn run() {
                 .build(),
         )
         .on_window_event(|window, event| {
-            // Closing the window from its custom TitleBar quits the app.
             if let tauri::WindowEvent::CloseRequested { .. } = event {
                 window.app_handle().exit(0);
             }
@@ -67,7 +70,6 @@ pub fn run() {
         .setup(move |app| {
             let handle = app.handle().clone();
 
-            // Load persisted config.
             let (saved_position, saved_size) = if let Ok(dir) = handle.path().app_data_dir() {
                 let cfg = config::load(&dir);
                 let mut inner = app_state.write();
@@ -94,13 +96,11 @@ pub fn run() {
                 (None, None)
             };
 
-            // Restore overlay position + size if previously saved, then show
-            // the window. The overlay starts hidden in tauri.conf.json so the
-            // first paint happens at the restored size, not the conf default.
+            // Overlay starts hidden in tauri.conf.json so the first paint
+            // happens at the restored size, not the conf default.
             if let Some(overlay) = handle.get_webview_window("overlay") {
                 // -32000 is the Win32 sentinel for a minimized window's
-                // GetWindowPos result. Skip restoring such a position so
-                // we don't spawn the window offscreen.
+                // GetWindowPos result; skip it to avoid spawning offscreen.
                 if let Some((x, y)) = saved_position {
                     if x > -32000 && y > -32000 {
                         let _ = overlay.set_position(tauri::PhysicalPosition::new(x, y));
@@ -112,22 +112,13 @@ pub fn run() {
                 let _ = overlay.show();
             }
 
-            // Hook thread (low-level mouse + keyboard).
-            hooks::install(app_state.clone(), handle.clone());
+            hooks::install(app_state.clone(), handle.clone())?;
+            broadcast::dispatcher::start(handle.clone(), app_state.clone())?;
 
-            // Dispatcher thread (focus-cycle + SendInput worker).
-            broadcast::dispatcher::start(handle.clone(), app_state.clone());
-
-            // Window enumeration timer.
             spawn_window_watcher(handle.clone(), app_state.clone());
-
-            // Foreground watchdog (auto-disable when no Dofus window is focused for ~5s).
             spawn_foreground_watchdog(handle.clone(), app_state.clone());
-
-            // Focus tracker (emits which tracked Dofus window is focused, for the avatar bar).
             spawn_focus_tracker(handle.clone(), app_state.clone());
 
-            // Register all configured global shortcuts (includes panic hotkey).
             shortcuts::reregister_all(&handle, &app_state);
 
             Ok(())
@@ -152,7 +143,8 @@ fn spawn_window_watcher(app: tauri::AppHandle, state: AppState) {
             }
             if changed {
                 last_signature = signature;
-                let _ = app.emit(
+                emit_or_log(
+                    &app,
                     events::EVT_WINDOWS_CHANGED,
                     WindowsChangedPayload {
                         windows: state.snapshot_windows(),
@@ -166,7 +158,7 @@ fn spawn_window_watcher(app: tauri::AppHandle, state: AppState) {
 fn spawn_focus_tracker(app: tauri::AppHandle, state: AppState) {
     tauri::async_runtime::spawn(async move {
         let mut interval = tokio::time::interval(Duration::from_millis(200));
-        // `None` = "not yet emitted"; `Some(None)` = "last emitted: no tracked window".
+        // None = not yet emitted; Some(None) = last emit was "no tracked window".
         let mut last: Option<Option<isize>> = None;
         loop {
             interval.tick().await;
@@ -175,7 +167,8 @@ fn spawn_focus_tracker(app: tauri::AppHandle, state: AppState) {
             let current = if known.contains(&fg) { Some(fg) } else { None };
             if last != Some(current) {
                 last = Some(current);
-                let _ = app.emit(
+                emit_or_log(
+                    &app,
                     events::EVT_FOCUSED_WINDOW_CHANGED,
                     FocusedWindowChangedPayload {
                         focused_hwnd: current,
@@ -206,9 +199,8 @@ fn spawn_foreground_watchdog(app: tauri::AppHandle, state: AppState) {
                 continue;
             }
             let fg = windows::focus::current_foreground();
-            // Both Dofus windows and our own app windows (overlay, settings)
-            // count as valid foreground — otherwise clicking the broadcast
-            // toggle on the overlay starts the auto-disable countdown.
+            // Our own windows (overlay, settings) count as valid foreground —
+            // otherwise clicking the overlay starts the auto-disable countdown.
             let dofus_known = state.all_hwnds();
             let app_known = app_hwnds(&app);
             let allowed = dofus_known.contains(&fg) || app_known.contains(&fg);
@@ -223,7 +215,8 @@ fn spawn_foreground_watchdog(app: tauri::AppHandle, state: AppState) {
                         fg = format!("{fg:#x}"),
                         "broadcast auto-disabled: no Dofus or doclick window foreground for 5s"
                     );
-                    let _ = app.emit(
+                    emit_or_log(
+                        &app,
                         events::EVT_BROADCAST_STATE,
                         BroadcastStatePayload {
                             enabled: false,

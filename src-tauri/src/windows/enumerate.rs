@@ -31,9 +31,9 @@ pub fn enumerate_dofus_windows() -> Vec<LiveWindow> {
 }
 
 unsafe extern "system" fn enum_proc(hwnd: HWND, lparam: LPARAM) -> BOOL {
-    let acc = &mut *(lparam.0 as *mut Vec<LiveWindow>);
+    let acc = unsafe { &mut *(lparam.0 as *mut Vec<LiveWindow>) };
 
-    if !IsWindowVisible(hwnd).as_bool() {
+    if !unsafe { IsWindowVisible(hwnd) }.as_bool() {
         return true.into();
     }
 
@@ -43,7 +43,7 @@ unsafe extern "system" fn enum_proc(hwnd: HWND, lparam: LPARAM) -> BOOL {
     }
 
     let mut pid: u32 = 0;
-    GetWindowThreadProcessId(hwnd, Some(&mut pid));
+    unsafe { GetWindowThreadProcessId(hwnd, Some(&mut pid)) };
     if pid == 0 {
         return true.into();
     }
@@ -142,6 +142,55 @@ fn read_class_name(hwnd: HWND) -> String {
             return String::new();
         }
         String::from_utf16_lossy(&buf[..copied as usize])
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_class_from_release_title() {
+        assert_eq!(
+            parse_dofus_class("Tolkee - Iop - 2.79.0 - Release"),
+            Some("iop".into())
+        );
+        assert_eq!(
+            parse_dofus_class("Cra - Cra - 2.79.0 - Release"),
+            Some("cra".into())
+        );
+    }
+
+    #[test]
+    fn folds_accents_for_class() {
+        assert_eq!(
+            parse_dofus_class("Bob - Crâ - 2 - Release"),
+            Some("cra".into())
+        );
+        assert_eq!(
+            parse_dofus_class("Bob - Ëniripsa - 2 - Release"),
+            Some("eniripsa".into())
+        );
+    }
+
+    #[test]
+    fn rejects_titles_with_too_few_segments() {
+        assert_eq!(parse_dofus_class("Just one"), None);
+        assert_eq!(parse_dofus_class("One - Two"), None);
+        assert_eq!(parse_dofus_class("One - Two - Three"), None);
+    }
+
+    #[test]
+    fn parses_character_name() {
+        assert_eq!(
+            super::parse_character_name("Tolkee - Iop - 2.79.0 - Release"),
+            Some("Tolkee".into())
+        );
+        assert_eq!(
+            super::parse_character_name("  Spaced  - Cra - 2 - Release"),
+            Some("Spaced".into())
+        );
+        assert_eq!(super::parse_character_name("No segments"), None);
     }
 }
 

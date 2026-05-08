@@ -126,6 +126,12 @@ impl ShortcutBindings {
     }
 }
 
+/// Owned, mutable application state.
+///
+/// Held inside an `Arc<RwLock<_>>` via [`AppState`] so it can be shared
+/// across the Tauri runtime, the dispatcher thread, and the hook thread.
+/// Intentionally not `Clone` — clones must go through `AppState::clone()`
+/// so every owner sees the same locked state.
 #[derive(Debug)]
 pub struct InnerState {
     pub profiles: Vec<CharacterProfile>,
@@ -184,6 +190,13 @@ pub fn default_broadcast_keys() -> Vec<u32> {
     ]
 }
 
+/// Cheap-to-clone handle to the shared application state.
+///
+/// All clones reference the same `Arc<RwLock<InnerState>>`. Use [`Self::read`]
+/// for snapshot reads, [`Self::write`] for mutations. Hold guards as briefly
+/// as possible — `RwLock` is held by the Tokio watcher tasks, the broadcast
+/// dispatcher thread, the hook thread, and Tauri command handlers; long-held
+/// write guards starve readers.
 #[derive(Debug, Clone)]
 pub struct AppState(Arc<RwLock<InnerState>>);
 
@@ -194,10 +207,14 @@ impl Default for AppState {
 }
 
 impl AppState {
+    /// Acquire a read guard. Blocks if a writer is active. Multiple readers
+    /// may hold the guard concurrently.
     pub fn read(&self) -> parking_lot::RwLockReadGuard<'_, InnerState> {
         self.0.read()
     }
 
+    /// Acquire a write guard. Blocks if any reader or writer is active. Hold
+    /// briefly: the dispatcher and watchers also acquire read guards.
     pub fn write(&self) -> parking_lot::RwLockWriteGuard<'_, InnerState> {
         self.0.write()
     }
@@ -284,6 +301,141 @@ impl AppState {
             (None, None) => a.2.cmp(&b.2),
         });
         items.into_iter().map(|(h, _, _)| h).collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn profile(id: &str, needle: &str) -> CharacterProfile {
+        CharacterProfile {
+            id: id.into(),
+            display_name: id.into(),
+            role: Role::Follower,
+            match_strategy: MatchStrategy::WindowTitleContains(needle.into()),
+            dofus_class: None,
+        }
+    }
+
+    fn live(hwnd: isize, pid: u32, title: &str) -> LiveWindow {
+        LiveWindow {
+            hwnd,
+            pid,
+            title: title.into(),
+            class_name: String::new(),
+            dofus_class: None,
+            character_name: None,
+        }
+    }
+
+    #[test]
+    fn matches_window_title_substring() {
+        let p = profile("a", "Tolkee");
+        assert!(p.matches_window("Tolkee - Iop - 2.79.0 - Release", 1));
+        assert!(p.matches_window("xxTolkeexx", 1));
+        assert!(!p.matches_window("tolkee", 1)); // case sensitive
+        assert!(!p.matches_window("Other - Cra", 1));
+    }
+
+    #[test]
+    fn matches_window_empty_needle_never_matches() {
+        let p = profile("a", "");
+        assert!(!p.matches_window("Anything", 1));
+    }
+
+    #[test]
+    fn matches_window_pid_strategy() {
+        let p = CharacterProfile {
+            id: "a".into(),
+            display_name: "a".into(),
+            role: Role::Follower,
+            match_strategy: MatchStrategy::Pid(42),
+            dofus_class: None,
+        };
+        assert!(p.matches_window("anything", 42));
+        assert!(!p.matches_window("anything", 41));
+    }
+
+    #[test]
+    fn broadcast_targets_excludes_source() {
+        let app = AppState::default();
+        {
+            let mut inner = app.write();
+            inner.profiles = vec![profile("a", "A"), profile("b", "B")];
+            inner.live_windows = vec![
+                live(1, 100, "A - Iop - 2 - Release"),
+                live(2, 101, "B - Cra - 2 - Release"),
+            ];
+        }
+        let targets = app.broadcast_targets(1);
+        assert_eq!(targets, vec![2]);
+    }
+
+    #[test]
+    fn broadcast_targets_skips_unmatched_windows() {
+        let app = AppState::default();
+        {
+            let mut inner = app.write();
+            inner.profiles = vec![profile("a", "Match")];
+            inner.live_windows = vec![
+                live(1, 100, "Match - Iop - 2 - Release"),
+                live(2, 101, "NotMine - Cra - 2 - Release"),
+                live(3, 102, "Match - Sram - 2 - Release"),
+            ];
+        }
+        let targets = app.broadcast_targets(1);
+        assert_eq!(targets, vec![3]);
+    }
+
+    #[test]
+    fn broadcast_targets_empty_when_no_followers() {
+        let app = AppState::default();
+        {
+            let mut inner = app.write();
+            inner.profiles = vec![profile("a", "Only")];
+            inner.live_windows = vec![live(1, 100, "Only - Iop - 2 - Release")];
+        }
+        assert!(app.broadcast_targets(1).is_empty());
+    }
+
+    #[test]
+    fn all_hwnds_filters_to_known_profiles() {
+        let app = AppState::default();
+        {
+            let mut inner = app.write();
+            inner.profiles = vec![profile("a", "A")];
+            inner.live_windows = vec![
+                live(1, 100, "A - x - 2 - Release"),
+                live(2, 101, "B - y - 2 - Release"),
+            ];
+        }
+        assert_eq!(app.all_hwnds(), vec![1]);
+    }
+
+    #[test]
+    fn ordered_visible_hwnds_respects_profile_order() {
+        let app = AppState::default();
+        {
+            let mut inner = app.write();
+            inner.profiles = vec![profile("a", "A"), profile("b", "B"), profile("c", "C")];
+            inner.profile_order = vec!["b".into(), "a".into(), "c".into()];
+            inner.live_windows = vec![
+                live(10, 100, "A - x - 2 - Release"),
+                live(20, 101, "B - x - 2 - Release"),
+                live(30, 102, "C - x - 2 - Release"),
+            ];
+        }
+        assert_eq!(app.ordered_visible_hwnds(), vec![20, 10, 30]);
+    }
+
+    #[test]
+    fn shortcut_bindings_pads_focus_char_to_eight() {
+        let mut sb = ShortcutBindings::default();
+        assert!(sb.focus_char.is_empty());
+        sb.ensure_focus_char_slots();
+        assert_eq!(sb.focus_char.len(), 8);
+        assert!(sb.focus_char.iter().all(Option::is_none));
     }
 }
 

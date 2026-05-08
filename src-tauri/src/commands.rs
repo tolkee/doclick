@@ -1,14 +1,14 @@
 use std::path::PathBuf;
 
 use serde::Serialize;
-use tauri::{AppHandle, Emitter, Manager, State};
+use tauri::{AppHandle, Manager, State};
 use windows::Win32::Foundation::HWND;
-use windows::Win32::UI::WindowsAndMessaging::{IsIconic, ShowWindow, SW_RESTORE};
+use windows::Win32::UI::WindowsAndMessaging::{IsIconic, IsWindow, ShowWindow, SW_RESTORE};
 
 use crate::config::{self, PersistedConfig};
 use crate::events::{
-    BroadcastStatePayload, WindowsChangedPayload, EVT_BROADCAST_STATE, EVT_PREFS_CHANGED,
-    EVT_WINDOWS_CHANGED,
+    emit_or_log, BroadcastStatePayload, WindowsChangedPayload, EVT_BROADCAST_STATE,
+    EVT_PREFS_CHANGED, EVT_WINDOWS_CHANGED,
 };
 use crate::state::{
     AppState, BroadcastReason, CharacterProfile, Orientation, ShortcutBindings, StateSnapshot,
@@ -58,7 +58,8 @@ pub fn persist(app: &AppHandle, state: &AppState) -> Result<(), CmdError> {
 }
 
 fn emit_windows_changed(app: &AppHandle, state: &AppState) {
-    let _ = app.emit(
+    emit_or_log(
+        app,
         EVT_WINDOWS_CHANGED,
         WindowsChangedPayload {
             windows: state.snapshot_windows(),
@@ -67,11 +68,12 @@ fn emit_windows_changed(app: &AppHandle, state: &AppState) {
 }
 
 fn emit_prefs_changed(app: &AppHandle) {
-    let _ = app.emit(EVT_PREFS_CHANGED, ());
+    emit_or_log(app, EVT_PREFS_CHANGED, ());
 }
 
 fn emit_broadcast_state(app: &AppHandle, enabled: bool, reason: BroadcastReason) {
-    let _ = app.emit(
+    emit_or_log(
+        app,
         EVT_BROADCAST_STATE,
         BroadcastStatePayload { enabled, reason },
     );
@@ -147,7 +149,6 @@ pub fn upsert_profile(
             *existing = profile.clone();
         } else {
             inner.profiles.push(profile.clone());
-            // Append to ordering if not already there.
             if !inner.profile_order.contains(&profile.id) {
                 inner.profile_order.push(profile.id.clone());
             }
@@ -189,11 +190,12 @@ pub fn acknowledge_pvp_warning(
 
 #[tauri::command]
 pub fn focus_dofus_window(hwnd: isize) -> Result<(), CmdError> {
-    unsafe {
-        let h = HWND(hwnd as *mut _);
-        if IsIconic(h).as_bool() {
-            let _ = ShowWindow(h, SW_RESTORE);
-        }
+    let h = HWND(hwnd as *mut _);
+    if !unsafe { IsWindow(Some(h)) }.as_bool() {
+        return Err(CmdError::Invalid("invalid window handle".into()));
+    }
+    if unsafe { IsIconic(h) }.as_bool() {
+        let _ = unsafe { ShowWindow(h, SW_RESTORE) };
     }
     let _ = focus_window(hwnd, std::time::Duration::from_millis(120));
     Ok(())

@@ -25,24 +25,19 @@ pub unsafe extern "system" fn ll_mouse_proc(
     if n_code == HC_ACTION as i32 {
         let msg = w_param.0 as u32;
 
-        // Mouse-bound shortcuts (XButton, middle button, scroll wheel). We
-        // never reuse the left/right buttons here — those are reserved for
-        // the broadcast click and the OS context menu.
+        // Mouse-bound shortcuts only — never left/right buttons. Left is
+        // reserved for the broadcast click, right for the OS context menu.
         if !is_dispatching() {
-            let trigger = trigger_from_message(msg, l_param);
-            if let Some(t) = trigger {
+            if let Some(t) = unsafe { trigger_from_message(msg, l_param) } {
                 let mods = current_modifiers();
                 if let Some(action) = shortcuts::lookup_mouse(MouseShortcut { mods, trigger: t }) {
                     if let Some(app) = app_handle() {
                         if shortcuts::should_run(&app, action) {
                             shortcuts::run_action(&app, action);
-                            // Swallow the event so the underlying app doesn't also
-                            // process it (matches the global-shortcut behaviour the
-                            // OS provides for keyboard accelerators).
+                            // Swallow so the underlying app doesn't double-process,
+                            // matching how the OS handles keyboard accelerators.
                             return LRESULT(1);
                         }
-                        // Gate denied — let the underlying app receive the
-                        // click/wheel naturally.
                     }
                 }
             }
@@ -52,10 +47,9 @@ pub unsafe extern "system" fn ll_mouse_proc(
         // DOWN+UP before the dispatcher steals focus to the targets.
         if msg == WM_LBUTTONUP && !is_dispatching() {
             if let Some(app_state) = state() {
-                // Snapshot in a single read-lock so we don't hold the lock
-                // across the Win32 syscalls below. LL hooks have a
-                // system-wide timeout (LowLevelHooksTimeout, ~300ms default);
-                // Windows quietly uninstalls hooks that exceed it.
+                // Snapshot under a single read-lock — the LL hook has a system
+                // timeout (LowLevelHooksTimeout, ~300ms) and Windows silently
+                // uninstalls hooks that exceed it.
                 let (broadcast_on, known) = {
                     let inner = app_state.read();
                     if !inner.broadcast_enabled {
@@ -76,7 +70,7 @@ pub unsafe extern "system" fn ll_mouse_proc(
                     }
                 };
                 if broadcast_on {
-                    let info = &*(l_param.0 as *const MSLLHOOKSTRUCT);
+                    let info = unsafe { &*(l_param.0 as *const MSLLHOOKSTRUCT) };
                     let sx = info.pt.x;
                     let sy = info.pt.y;
                     let fg = current_foreground();
@@ -112,15 +106,15 @@ pub unsafe extern "system" fn ll_mouse_proc(
             }
         }
     }
-    CallNextHookEx(None, n_code, w_param, l_param)
+    unsafe { CallNextHookEx(None, n_code, w_param, l_param) }
 }
 
 unsafe fn trigger_from_message(msg: u32, l_param: LPARAM) -> Option<MouseTrigger> {
     match msg {
         WM_MBUTTONDOWN => Some(MouseTrigger::Mouse3),
         WM_XBUTTONDOWN => {
-            let info = &*(l_param.0 as *const MSLLHOOKSTRUCT);
             // HIWORD(mouseData) is XBUTTON1 (1) or XBUTTON2 (2).
+            let info = unsafe { &*(l_param.0 as *const MSLLHOOKSTRUCT) };
             match (info.mouseData >> 16) as u16 {
                 1 => Some(MouseTrigger::Mouse4),
                 2 => Some(MouseTrigger::Mouse5),
@@ -128,8 +122,8 @@ unsafe fn trigger_from_message(msg: u32, l_param: LPARAM) -> Option<MouseTrigger
             }
         }
         WM_MOUSEWHEEL => {
-            let info = &*(l_param.0 as *const MSLLHOOKSTRUCT);
             // HIWORD(mouseData) is the signed wheel delta.
+            let info = unsafe { &*(l_param.0 as *const MSLLHOOKSTRUCT) };
             let delta = (info.mouseData >> 16) as u16 as i16;
             if delta > 0 {
                 Some(MouseTrigger::WheelUp)
@@ -144,21 +138,21 @@ unsafe fn trigger_from_message(msg: u32, l_param: LPARAM) -> Option<MouseTrigger
 }
 
 fn current_modifiers() -> u8 {
-    unsafe {
-        let pressed = |vk: VIRTUAL_KEY| (GetAsyncKeyState(vk.0 as i32) as u16) & 0x8000 != 0;
-        let mut m = 0u8;
-        if pressed(VK_CONTROL) {
-            m |= MOD_CTRL;
-        }
-        if pressed(VK_SHIFT) {
-            m |= MOD_SHIFT;
-        }
-        if pressed(VK_MENU) {
-            m |= MOD_ALT;
-        }
-        if pressed(VK_LWIN) || pressed(VK_RWIN) {
-            m |= MOD_META;
-        }
-        m
+    let pressed = |vk: VIRTUAL_KEY| {
+        (unsafe { GetAsyncKeyState(vk.0 as i32) } as u16) & 0x8000 != 0
+    };
+    let mut m = 0u8;
+    if pressed(VK_CONTROL) {
+        m |= MOD_CTRL;
     }
+    if pressed(VK_SHIFT) {
+        m |= MOD_SHIFT;
+    }
+    if pressed(VK_MENU) {
+        m |= MOD_ALT;
+    }
+    if pressed(VK_LWIN) || pressed(VK_RWIN) {
+        m |= MOD_META;
+    }
+    m
 }

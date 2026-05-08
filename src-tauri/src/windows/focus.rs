@@ -67,7 +67,7 @@ pub fn focus_window(hwnd: isize, timeout: Duration) -> bool {
 }
 
 unsafe fn prime_focus_change_rights() {
-    let scan = MapVirtualKeyW(VK_MENU.0 as u32, MAPVK_VK_TO_VSC) as u16;
+    let scan = unsafe { MapVirtualKeyW(VK_MENU.0 as u32, MAPVK_VK_TO_VSC) } as u16;
     let inputs = [
         INPUT {
             r#type: INPUT_KEYBOARD,
@@ -94,7 +94,7 @@ unsafe fn prime_focus_change_rights() {
             },
         },
     ];
-    let _ = SendInput(&inputs, std::mem::size_of::<INPUT>() as i32);
+    let _ = unsafe { SendInput(&inputs, std::mem::size_of::<INPUT>() as i32) };
 }
 
 pub fn wait_until_foreground(hwnd: isize, timeout: Duration) -> bool {

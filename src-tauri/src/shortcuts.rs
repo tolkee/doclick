@@ -1,15 +1,15 @@
 use std::collections::HashMap;
-use std::sync::Mutex;
 
 use once_cell::sync::Lazy;
-use tauri::{AppHandle, Emitter, Manager};
+use parking_lot::Mutex;
+use tauri::{AppHandle, Manager};
 use tauri_plugin_global_shortcut::{
     Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutEvent, ShortcutState,
 };
 
 use crate::commands;
 use crate::events::{
-    BroadcastStatePayload, EVT_BROADCAST_STATE, EVT_OPEN_SETTINGS,
+    emit_or_log, BroadcastStatePayload, EVT_BROADCAST_STATE, EVT_OPEN_SETTINGS,
 };
 use crate::state::{AppState, BroadcastReason, ShortcutBindings};
 
@@ -58,8 +58,8 @@ static MOUSE_REGISTERED: Lazy<Mutex<HashMap<MouseShortcut, ShortcutAction>>> =
 pub fn reregister_all(app: &AppHandle, state: &AppState) {
     let gs = app.global_shortcut();
     let _ = gs.unregister_all();
-    REGISTERED.lock().unwrap().clear();
-    MOUSE_REGISTERED.lock().unwrap().clear();
+    REGISTERED.lock().clear();
+    MOUSE_REGISTERED.lock().clear();
 
     let (panic_accel, bindings) = {
         let inner = state.read();
@@ -77,8 +77,8 @@ pub fn reregister_all(app: &AppHandle, state: &AppState) {
     );
     register_bindings(app, &bindings, &mut new_kbd, &mut new_mouse);
 
-    *REGISTERED.lock().unwrap() = new_kbd;
-    *MOUSE_REGISTERED.lock().unwrap() = new_mouse;
+    *REGISTERED.lock() = new_kbd;
+    *MOUSE_REGISTERED.lock() = new_mouse;
 }
 
 fn register_bindings(
@@ -151,17 +151,14 @@ fn register_one(
 
 /// Look up a mouse-trigger binding. Called from the low-level mouse hook.
 pub fn lookup_mouse(s: MouseShortcut) -> Option<ShortcutAction> {
-    MOUSE_REGISTERED.lock().unwrap().get(&s).copied()
+    MOUSE_REGISTERED.lock().get(&s).copied()
 }
 
 pub fn dispatch(app: &AppHandle, shortcut: &Shortcut, event: ShortcutEvent) {
     if event.state() != ShortcutState::Pressed {
         return;
     }
-    let action = {
-        let map = REGISTERED.lock().unwrap();
-        map.get(shortcut).copied()
-    };
+    let action = REGISTERED.lock().get(shortcut).copied();
     let Some(action) = action else { return };
     if !should_run(app, action) {
         return;
@@ -204,7 +201,8 @@ pub fn run_action(app: &AppHandle, action: ShortcutAction) {
     match action {
         ShortcutAction::PanicHotkey => {
             state.write().broadcast_enabled = false;
-            let _ = app_handle.emit(
+            emit_or_log(
+                &app_handle,
                 EVT_BROADCAST_STATE,
                 BroadcastStatePayload {
                     enabled: false,
@@ -218,7 +216,8 @@ pub fn run_action(app: &AppHandle, action: ShortcutAction) {
                 inner.broadcast_enabled = !inner.broadcast_enabled;
                 inner.broadcast_enabled
             };
-            let _ = app_handle.emit(
+            emit_or_log(
+                &app_handle,
                 EVT_BROADCAST_STATE,
                 BroadcastStatePayload {
                     enabled: new_enabled,
@@ -227,7 +226,7 @@ pub fn run_action(app: &AppHandle, action: ShortcutAction) {
             );
         }
         ShortcutAction::OpenSettings => {
-            let _ = app_handle.emit(EVT_OPEN_SETTINGS, ());
+            emit_or_log(&app_handle, EVT_OPEN_SETTINGS, ());
         }
         ShortcutAction::CloseApp => {
             let _ = commands::persist(&app_handle, state.inner());
@@ -306,6 +305,66 @@ fn mouse_trigger_from_str(s: &str) -> Option<MouseTrigger> {
         "wheeldown" | "scrolldown" => MouseTrigger::WheelDown,
         _ => return None,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_letter_with_modifiers() {
+        let parsed = parse_shortcut("Ctrl+Shift+B").unwrap();
+        match parsed {
+            ParsedShortcut::Keyboard(_) => {}
+            ParsedShortcut::Mouse(_) => panic!("expected keyboard"),
+        }
+    }
+
+    #[test]
+    fn parses_function_keys() {
+        assert!(matches!(
+            parse_shortcut("F12"),
+            Some(ParsedShortcut::Keyboard(_))
+        ));
+    }
+
+    #[test]
+    fn parses_named_keys() {
+        for name in ["Esc", "Space", "Enter", "Tab", "Left", "Up"] {
+            assert!(parse_shortcut(name).is_some(), "failed: {name}");
+        }
+    }
+
+    #[test]
+    fn parses_mouse_triggers() {
+        for name in ["Mouse3", "Mouse4", "Mouse5", "WheelUp", "WheelDown"] {
+            let parsed = parse_shortcut(name).unwrap();
+            assert!(matches!(parsed, ParsedShortcut::Mouse(_)), "failed: {name}");
+        }
+    }
+
+    #[test]
+    fn parses_mouse_with_modifiers() {
+        let parsed = parse_shortcut("Ctrl+Alt+Mouse4").unwrap();
+        match parsed {
+            ParsedShortcut::Mouse(m) => {
+                assert_eq!(m.mods, MOD_CTRL | MOD_ALT);
+                assert_eq!(m.trigger, MouseTrigger::Mouse4);
+            }
+            ParsedShortcut::Keyboard(_) => panic!("expected mouse"),
+        }
+    }
+
+    #[test]
+    fn rejects_unknown_token() {
+        assert!(parse_shortcut("BogusKey").is_none());
+        assert!(parse_shortcut("").is_none());
+    }
+
+    #[test]
+    fn modifiers_alone_is_not_a_shortcut() {
+        assert!(parse_shortcut("Ctrl+Shift").is_none());
+    }
 }
 
 fn code_from_str(s: &str) -> Option<Code> {
