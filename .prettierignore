@@ -13,5 +13,8 @@ CHANGELOG.md
 release-please-config.json
 components.json
 README.md
+ARCHITECTURE.md
+CONTRIBUTING.md
+CLAUDE.md
 index.html
 src/index.css
