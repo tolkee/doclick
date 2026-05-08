@@ -13,6 +13,14 @@ export function GlobalTab({ onNavigate }: Props) {
   const orientation = useDoclickStore((s) => s.orientation);
   const setOrientation = useDoclickStore((s) => s.setOrientation);
   const profiles = useDoclickStore((s) => s.profiles);
+  const windows = useDoclickStore((s) => s.windows);
+
+  // A "character window" is one whose title parsed into a character name —
+  // launchers and other Dofus-process windows have character_name === null.
+  // Mirrors the overlay placeholder logic in AvatarBar.
+  const characterWindowCount = windows.filter(
+    (w) => w.character_name !== null,
+  ).length;
 
   return (
     <div className="space-y-6 max-w-2xl">
@@ -35,11 +43,24 @@ export function GlobalTab({ onNavigate }: Props) {
 
       {profiles.length === 0 && (
         <div className="flex items-center justify-between gap-3 rounded-md border p-4">
-          <p className="text-sm font-medium">Aucun personnage importé</p>
-          <Button size="sm" onClick={() => onNavigate("characters")}>
-            Aller aux personnages
-            <ArrowRight />
-          </Button>
+          {characterWindowCount > 0 ? (
+            <>
+              <p className="text-sm font-medium">
+                {characterWindowCount === 1
+                  ? "1 personnage détecté"
+                  : `${characterWindowCount} personnages détectés`}
+              </p>
+              <Button size="sm" onClick={() => onNavigate("characters")}>
+                Aller aux personnages
+                <ArrowRight />
+              </Button>
+            </>
+          ) : (
+            <p className="text-sm font-medium">
+              Aucune fenêtre Dofus ouverte. Connectez-vous à un personnage pour
+              commencer.
+            </p>
+          )}
         </div>
       )}
 
