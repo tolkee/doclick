@@ -1,0 +1,17 @@
+dist
+node_modules
+src-tauri
+bun.lock
+package-lock.json
+yarn.lock
+CHANGELOG.md
+.claude
+.agents
+.github
+.vscode
+.release-please-manifest.json
+release-please-config.json
+components.json
+README.md
+index.html
+src/index.css
