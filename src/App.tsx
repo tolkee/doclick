@@ -58,12 +58,11 @@ export default function App() {
       const factor = await win.scaleFactor();
       const pos = (await win.outerPosition()).toLogical(factor);
       overlayPositionSnapshot.current = { x: pos.x, y: pos.y };
-      // Apply size BEFORE flipping view so the settings UI never paints
-      // at overlay dimensions (no flash). Order: enable resize so the
-      // current overlay min doesn't clamp, set new min, then set size.
-      // Reject saved sizes smaller than SETTINGS_MIN_SIZE — they can only
-      // come from poisoned cache (older builds occasionally persisted the
-      // overlay's dimensions as settings_size on view transitions).
+      // Apply size BEFORE the view flip so the settings UI never paints at
+      // overlay dimensions. Order matters: re-enable resize (the overlay
+      // min would clamp), then set new min, then size. Reject saved sizes
+      // below SETTINGS_MIN_SIZE — older builds occasionally persisted the
+      // overlay's dimensions as settings_size on view transitions.
       const saved = useDoclickStore.getState().settingsSize;
       const target: [number, number] = isValidSettingsSize(saved)
         ? (saved as [number, number])
@@ -163,12 +162,9 @@ export default function App() {
   const hydrated = useDoclickStore((s) => s.hydrated);
   const visibleCount = useDoclickStore((s) => s.windows.filter((w) => w.profile != null).length);
 
-  // Apply the overlay size when its derivation inputs change. View
-  // transitions are *not* driven from here — enterSettings/exitSettings
-  // apply size imperatively before flipping `view`, so the new view
-  // never paints at the wrong dimensions. This effect is just the
-  // passive backup that catches orientation toggles, chip count
-  // changes, and the user's saved-size updates while in overlay view.
+  // Passive size sync for orientation, chip count, and saved-size changes
+  // while in overlay view. enterSettings/exitSettings apply size imperatively
+  // around the view flip, so this effect must NOT run for view transitions.
   useEffect(() => {
     if (!hydrated) return;
     if (view !== "overlay") return;
@@ -190,11 +186,10 @@ export default function App() {
     })();
   }, [hydrated, view, orientation, visibleCount, overlaySizes]);
 
-  // Persist the settings window size while the user is in settings
-  // view. `onResized` fires for *any* size change — custom handle
-  // drags, native edge drags (resizable: true), or programmatic
-  // setSize from this code. Debounced + dedup'd so a steady-state size
-  // doesn't loop back into the store.
+  // Persist settings size while in settings view. onResized fires for ALL
+  // size changes (handle drag, native edge drag, programmatic setSize), so
+  // the debounce + dedup keeps a steady-state size from looping into the
+  // store.
   useEffect(() => {
     if (view !== "settings") return;
     const win = getCurrentWindow();
@@ -236,9 +231,6 @@ export default function App() {
     );
   }
 
-  // Overlay view. Outer card matches the settings window's chrome:
-  // solid bg, `rounded-xl`, `border-border/50`, `shadow-2xl`. The
-  // TitleBar and the bar below sit flush as one block.
   const openCharacters = () => enterSettings("characters");
 
   if (orientation === "vertical") {

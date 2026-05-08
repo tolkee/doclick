@@ -11,8 +11,8 @@ export interface CharacterProfile {
   display_name: string;
   role: Role;
   match_strategy: MatchStrategy;
-  /// Class slug captured at import time so the avatar still renders when no
-  /// live Dofus window matches the profile.
+  /** Class slug captured at import time so the avatar still renders when no
+   * live Dofus window matches the profile. */
   dofus_class: string | null;
 }
 
@@ -30,7 +30,7 @@ export interface ShortcutBindings {
   toggle_broadcast: string | null;
   open_settings: string | null;
   close_app: string | null;
-  /// 8 slots; element N maps to "switch to char N+1".
+  /** 8 slots; element N maps to "switch to char N+1". */
   focus_char: (string | null)[];
   focus_next: string | null;
   focus_prev: string | null;

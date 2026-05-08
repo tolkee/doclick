@@ -27,20 +27,19 @@ interface DoclickState {
   broadcastKeys: number[];
   focusedHwnd: number | null;
   lastError: string | null;
-  /// True once `hydrate()` has completed at least once. Effects that
-  /// resize the overlay window must wait for this — before hydrate the
-  /// store holds defaults that would otherwise clobber the size that
-  /// Rust restored on app startup.
+  /**
+   * True once `hydrate()` has completed at least once. Effects that resize
+   * the overlay window must wait for this — before hydrate the store holds
+   * defaults that would otherwise clobber the size Rust restored on startup.
+   */
   hydrated: boolean;
 
-  // sync
   hydrate: () => Promise<void>;
   setWindows: (w: WindowEntry[]) => void;
   setBroadcast: (enabled: boolean, reason: BroadcastReason | null) => void;
   setBroadcastLive: (live: boolean) => void;
   setError: (msg: string | null) => void;
 
-  // actions
   toggleBroadcast: () => Promise<void>;
   upsertProfile: (p: CharacterProfile) => Promise<void>;
   deleteProfile: (id: string) => Promise<void>;
@@ -135,9 +134,6 @@ export const useDoclickStore = create<DoclickState>((set, get) => ({
   setOrientation: async (orientation) => {
     await cmd.setOrientation(orientation);
     set({ orientation });
-    // App.tsx applies the overlay window size in response to the
-    // orientation change — and skips it while the settings view is open
-    // so the user's edits aren't shrunk away mid-toggle.
   },
   saveOverlaySize: async (orientation, width, height) => {
     await cmd.saveOverlaySize(orientation, width, height);
@@ -173,7 +169,7 @@ function padFocusChar(slots: (string | null)[]): (string | null)[] {
   return out;
 }
 
-// (Selectors that allocate new arrays/objects each call must NOT be passed to
-// `useDoclickStore(...)` directly — Zustand's snapshot equality treats every
-// new ref as a change and infinite-loops. Compute derived data with `useMemo`
-// at the call site over stable raw refs instead. See AvatarBar for the pattern.)
+// Selectors that allocate must not be passed to `useDoclickStore(...)`
+// directly — Zustand's snapshot equality treats every new ref as a change
+// and infinite-loops. Wrap derived data with `useMemo` at the call site
+// over stable raw refs (see AvatarBar for the pattern).

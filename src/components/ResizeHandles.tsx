@@ -1,30 +1,29 @@
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { getCurrentWindow, LogicalPosition, LogicalSize } from "@tauri-apps/api/window";
 import { computeOverlayMinSize, SETTINGS_MIN_SIZE } from "../lib/overlaySize";
+import { computeResizeStep, type ResizeDirection } from "../lib/resizePointer";
 import { useDoclickStore } from "../store/useDoclickStore";
 
-type Direction = "East" | "West" | "North" | "South";
+type Direction = ResizeDirection;
 
-/// Three resize "modes" decide which edges get a handle and where the
-/// final size gets persisted:
-///
-///   - `overlay-horizontal`: only E/W handles (width adjustable). The
-///     bar's height is locked; user-saved width persists to
-///     overlay_sizes.horizontal.
-///   - `overlay-vertical`: only N/S handles (height adjustable). The
-///     bar's width is locked; user-saved height persists to
-///     overlay_sizes.vertical.
-///   - `settings`: all four handles; full size persists to
-///     settings_size.
+/**
+ * Resize "mode" decides which edges get a handle and where the final size
+ * persists:
+ *   - `overlay-horizontal`: E/W handles only; persists to overlay_sizes.horizontal.
+ *   - `overlay-vertical`:   N/S handles only; persists to overlay_sizes.vertical.
+ *   - `settings`:           all four edges; persists to settings_size.
+ */
 export type ResizeMode = "overlay-horizontal" | "overlay-vertical" | "settings";
 
 interface Props {
   mode: ResizeMode;
 }
 
-/// Custom edge resize for a transparent/decoration-less Tauri window.
-/// The OS window has `decorations: false` so Windows draws no native
-/// resize chrome; this component is the only resize affordance.
+/**
+ * Custom edge resize for a Tauri window with `decorations: false`. The OS
+ * draws no native resize chrome, so this component is the only resize
+ * affordance.
+ */
 export function ResizeHandles({ mode }: Props) {
   const start = (direction: Direction) => async (e: ReactPointerEvent<HTMLDivElement>) => {
     if (e.button !== 0) return;
@@ -84,35 +83,13 @@ export function ResizeHandles({ mode }: Props) {
     };
 
     const onMove = (ev: PointerEvent) => {
-      const dx = ev.screenX - startSx;
-      const dy = ev.screenY - startSy;
-
-      let newW = initialW;
-      let newH = initialH;
-      let newX = initialX;
-      let newY = initialY;
-      let needsPos = false;
-
-      switch (direction) {
-        case "East":
-          newW = Math.max(min.width, initialW + dx);
-          break;
-        case "West":
-          newW = Math.max(min.width, initialW - dx);
-          newX = initialX + initialW - newW;
-          needsPos = true;
-          break;
-        case "South":
-          newH = Math.max(min.height, initialH + dy);
-          break;
-        case "North":
-          newH = Math.max(min.height, initialH - dy);
-          newY = initialY + initialH - newH;
-          needsPos = true;
-          break;
-      }
-
-      pending = { w: newW, h: newH, x: newX, y: newY, needsPos };
+      pending = computeResizeStep(
+        direction,
+        ev.screenX - startSx,
+        ev.screenY - startSy,
+        { width: initialW, height: initialH, x: initialX, y: initialY },
+        min,
+      );
       if (pendingFrame !== null) return;
       pendingFrame = requestAnimationFrame(flush);
     };
@@ -154,7 +131,6 @@ export function ResizeHandles({ mode }: Props) {
       </>
     );
   }
-  // settings: all four edges
   return (
     <>
       <Handle direction="North" cursor="ns-resize" axis="vertical" onStart={start("North")} />

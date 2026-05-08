@@ -9,10 +9,12 @@ interface Props {
   className?: string;
 }
 
-/// Records a shortcut when focused. Captures key combos, mouse side buttons
-/// (Mouse4/Mouse5), middle/scroll click (Mouse3) and wheel scroll
-/// (WheelUp/WheelDown), with optional Ctrl/Shift/Alt/Meta modifiers. Clear
-/// with the inline × button.
+/**
+ * Records a shortcut when focused. Captures keyboard combos, mouse side
+ * buttons (Mouse4/Mouse5), middle/scroll click (Mouse3), and wheel scroll
+ * (WheelUp/WheelDown), each with optional Ctrl/Shift/Alt/Meta modifiers.
+ * Clear with the inline × button.
+ */
 export function HotkeyInput({ value, onChange, placeholder, className = "" }: Props) {
   const [recording, setRecording] = useState(false);
   const [draft, setDraft] = useState<string | null>(value);
