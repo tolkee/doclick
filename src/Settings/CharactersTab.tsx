@@ -29,8 +29,7 @@ function newId(): string {
 
 function profileFromWindow(w: WindowEntry): CharacterProfile {
   if (w.profile) return w.profile;
-  const guess =
-    w.character_name ?? w.title.split(" - ")[0]?.trim() ?? w.title;
+  const guess = w.character_name ?? w.title.split(" - ")[0]?.trim() ?? w.title;
   const name = (guess || "Personnage").slice(0, 32);
   return {
     id: newId(),
@@ -65,14 +64,11 @@ export function CharactersTab() {
   }, [windows]);
 
   const importable = useMemo(
-    () =>
-      windows.filter((w) => w.profile == null && w.character_name != null),
+    () => windows.filter((w) => w.profile == null && w.character_name != null),
     [windows],
   );
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
-  );
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
   const onDragEnd = (e: DragEndEvent) => {
     const { active, over } = e;
@@ -94,15 +90,9 @@ export function CharactersTab() {
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Vos personnages</h2>
         {orderedProfiles.length === 0 ? (
-          <p className="text-sm italic text-muted-foreground">
-            Aucun personnage importé.
-          </p>
+          <p className="text-sm italic text-muted-foreground">Aucun personnage importé.</p>
         ) : (
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={onDragEnd}
-          >
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
             <SortableContext
               items={orderedProfiles.map((p) => p.id)}
               strategy={verticalListSortingStrategy}
@@ -117,9 +107,7 @@ export function CharactersTab() {
                       live={live}
                       index={idx}
                       isMain={mainId === p.id}
-                      onToggleMain={() =>
-                        setMain(mainId === p.id ? null : p.id)
-                      }
+                      onToggleMain={() => setMain(mainId === p.id ? null : p.id)}
                       onForget={() => remove(p.id)}
                     />
                   );
@@ -133,17 +121,11 @@ export function CharactersTab() {
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Trouver un personnage</h2>
         {importable.length === 0 ? (
-          <p className="text-sm italic text-muted-foreground">
-            Aucun personnage connecté.
-          </p>
+          <p className="text-sm italic text-muted-foreground">Aucun personnage connecté.</p>
         ) : (
           <ul className="space-y-2">
             {importable.map((w) => (
-              <ImportableRow
-                key={w.hwnd}
-                entry={w}
-                onImport={() => handleImport(w)}
-              />
+              <ImportableRow key={w.hwnd} entry={w} onImport={() => handleImport(w)} />
             ))}
           </ul>
         )}
@@ -161,26 +143,14 @@ interface ImportedRowProps {
   onForget: () => void;
 }
 
-function ImportedRow({
-  profile,
-  live,
-  index,
-  isMain,
-  onToggleMain,
-  onForget,
-}: ImportedRowProps) {
+function ImportedRow({ profile, live, index, isMain, onToggleMain, onForget }: ImportedRowProps) {
   const dofusClass = live?.dofus_class ?? profile.dofus_class ?? null;
   const cls = classDisplayName(dofusClass);
   const avatar = avatarUrlFor(dofusClass);
   const online = live != null;
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: profile.id });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: profile.id,
+  });
 
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -204,9 +174,7 @@ function ImportedRow({
       >
         <GripVertical className="h-4 w-4" />
       </button>
-      <span className="w-5 text-center text-xs text-muted-foreground">
-        {index + 1}
-      </span>
+      <span className="w-5 text-center text-xs text-muted-foreground">{index + 1}</span>
       <CharacterAvatar src={avatar} className={cls} />
       <span
         className={cn(
@@ -216,12 +184,8 @@ function ImportedRow({
         title={online ? "Connecté" : "Aucune fenêtre"}
       />
       <div className="flex flex-1 flex-col leading-tight">
-        <span className="truncate text-sm font-medium">
-          {profile.display_name}
-        </span>
-        {cls && (
-          <span className="truncate text-xs text-muted-foreground">{cls}</span>
-        )}
+        <span className="truncate text-sm font-medium">{profile.display_name}</span>
+        {cls && <span className="truncate text-xs text-muted-foreground">{cls}</span>}
       </div>
       <Button
         variant="ghost"
@@ -251,19 +215,14 @@ interface ImportableRowProps {
 function ImportableRow({ entry, onImport }: ImportableRowProps) {
   const cls = classDisplayName(entry.dofus_class);
   const avatar = avatarUrlFor(entry.dofus_class);
-  const guessedName =
-    entry.character_name ??
-    entry.title.split(" - ")[0]?.trim() ??
-    entry.title;
+  const guessedName = entry.character_name ?? entry.title.split(" - ")[0]?.trim() ?? entry.title;
 
   return (
     <li className="flex items-center gap-3 rounded-md border px-3 py-2">
       <CharacterAvatar src={avatar} className={cls} />
       <div className="flex flex-1 flex-col leading-tight">
         <span className="truncate text-sm font-medium">{guessedName}</span>
-        {cls && (
-          <span className="truncate text-xs text-muted-foreground">{cls}</span>
-        )}
+        {cls && <span className="truncate text-xs text-muted-foreground">{cls}</span>}
       </div>
       <Button size="sm" onClick={onImport}>
         <Download />
@@ -273,21 +232,11 @@ function ImportableRow({ entry, onImport }: ImportableRowProps) {
   );
 }
 
-function CharacterAvatar({
-  src,
-  className,
-}: {
-  src: string | null;
-  className: string | null;
-}) {
+function CharacterAvatar({ src, className }: { src: string | null; className: string | null }) {
   return (
     <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted text-xs">
       {src ? (
-        <img
-          src={src}
-          alt={className ?? ""}
-          className="h-full w-full object-cover"
-        />
+        <img src={src} alt={className ?? ""} className="h-full w-full object-cover" />
       ) : (
         <span className="text-muted-foreground">?</span>
       )}
@@ -295,10 +244,7 @@ function CharacterAvatar({
   );
 }
 
-function orderProfiles(
-  profiles: CharacterProfile[],
-  profileOrder: string[],
-): CharacterProfile[] {
+function orderProfiles(profiles: CharacterProfile[], profileOrder: string[]): CharacterProfile[] {
   const idx = (p: CharacterProfile) => {
     const i = profileOrder.indexOf(p.id);
     return i < 0 ? Infinity : i;

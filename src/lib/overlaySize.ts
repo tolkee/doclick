@@ -78,25 +78,19 @@ export function computeOverlaySize(args: OverlaySizeArgs): {
 } {
   const count = args.visibleCount;
   if (args.orientation === "horizontal") {
-    const chipsAxis =
-      count > 0 ? count * CHIP_BLOCK : HORIZONTAL_EMPTY_MAIN_AXIS;
+    const chipsAxis = count > 0 ? count * CHIP_BLOCK : HORIZONTAL_EMPTY_MAIN_AXIS;
     const minWidth = HORIZONTAL_CONTROLS_WIDTH + HORIZONTAL_EMPTY_MAIN_AXIS;
     return {
-      width: Math.max(
-        args.savedMainAxis ?? HORIZONTAL_CONTROLS_WIDTH + chipsAxis,
-        minWidth,
-      ),
+      width: Math.max(args.savedMainAxis ?? HORIZONTAL_CONTROLS_WIDTH + chipsAxis, minWidth),
       height: TITLEBAR_HEIGHT + HORIZONTAL_BAR_HEIGHT,
     };
   }
   const chipsAxis = count > 0 ? count * CHIP_BLOCK : VERTICAL_EMPTY_MAIN_AXIS;
-  const minHeight =
-    VERTICAL_TOPBAR_HEIGHT + VERTICAL_CONTROLS_HEIGHT + VERTICAL_EMPTY_MAIN_AXIS;
+  const minHeight = VERTICAL_TOPBAR_HEIGHT + VERTICAL_CONTROLS_HEIGHT + VERTICAL_EMPTY_MAIN_AXIS;
   return {
     width: VERTICAL_BAR_WIDTH,
     height: Math.max(
-      args.savedMainAxis ??
-        VERTICAL_TOPBAR_HEIGHT + VERTICAL_CONTROLS_HEIGHT + chipsAxis,
+      args.savedMainAxis ?? VERTICAL_TOPBAR_HEIGHT + VERTICAL_CONTROLS_HEIGHT + chipsAxis,
       minHeight,
     ),
   };
@@ -117,8 +111,7 @@ export function computeOverlayMinSize(orientation: Orientation): {
   }
   return {
     width: VERTICAL_BAR_WIDTH,
-    height:
-      VERTICAL_TOPBAR_HEIGHT + VERTICAL_CONTROLS_HEIGHT + VERTICAL_EMPTY_MAIN_AXIS,
+    height: VERTICAL_TOPBAR_HEIGHT + VERTICAL_CONTROLS_HEIGHT + VERTICAL_EMPTY_MAIN_AXIS,
   };
 }
 

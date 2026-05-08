@@ -17,10 +17,7 @@ export function AvatarBar({ onOpenCharacters }: Props) {
 
   // Sort/filter via useMemo so the selector itself returns stable refs and
   // doesn't trip Zustand's snapshot-equality detection (would otherwise loop).
-  const visible = useMemo(
-    () => orderVisible(windows, profileOrder),
-    [windows, profileOrder],
-  );
+  const visible = useMemo(() => orderVisible(windows, profileOrder), [windows, profileOrder]);
 
   // A "character window" is one whose title parsed into a character name
   // (see parse_character_name in src-tauri/src/windows/enumerate.rs). The
@@ -91,10 +88,7 @@ export function AvatarBar({ onOpenCharacters }: Props) {
   );
 }
 
-function orderVisible(
-  windows: WindowEntry[],
-  profileOrder: string[],
-): WindowEntry[] {
+function orderVisible(windows: WindowEntry[], profileOrder: string[]): WindowEntry[] {
   // Only imported characters (i.e. those resolved to a profile) appear in the
   // overlay.
   const filtered = windows.filter((w) => w.profile != null);

@@ -27,13 +27,12 @@ export function AboutTab() {
       <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-4 space-y-2">
         <p className="font-medium text-amber-200">Avertissement</p>
         <p className="text-amber-100/90">
-          Doclick ne lit jamais le réseau de Dofus ni les fichiers du jeu. Il
-          reproduit uniquement les clics et les touches que vous effectuez
-          vous-même sur la fenêtre principale.
+          Doclick ne lit jamais le réseau de Dofus ni les fichiers du jeu. Il reproduit uniquement
+          les clics et les touches que vous effectuez vous-même sur la fenêtre principale.
         </p>
         <p className="text-amber-100/90">
-          Ce logiciel n'est pas destiné au botting. Il doit être utilisé
-          exclusivement pour faciliter le jeu en team multicompte.
+          Ce logiciel n'est pas destiné au botting. Il doit être utilisé exclusivement pour
+          faciliter le jeu en team multicompte.
         </p>
       </div>
 

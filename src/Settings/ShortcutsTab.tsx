@@ -40,17 +40,11 @@ export function ShortcutsTab() {
         <div className="space-y-1">
           {GLOBAL_ROWS.map((row) => (
             <Row key={row.key} label={row.label}>
-              <HotkeyInput
-                value={shortcuts[row.key]}
-                onChange={(v) => updateField(row.key, v)}
-              />
+              <HotkeyInput value={shortcuts[row.key]} onChange={(v) => updateField(row.key, v)} />
             </Row>
           ))}
           <Row label="Raccourci panique">
-            <HotkeyInput
-              value={panicHotkey || null}
-              onChange={(v) => setPanicHotkey(v ?? "")}
-            />
+            <HotkeyInput value={panicHotkey || null} onChange={(v) => setPanicHotkey(v ?? "")} />
           </Row>
         </div>
       </section>
@@ -60,10 +54,7 @@ export function ShortcutsTab() {
         <div className="space-y-1">
           {NAV_ROWS.map((row) => (
             <Row key={row.key} label={row.label}>
-              <HotkeyInput
-                value={shortcuts[row.key]}
-                onChange={(v) => updateField(row.key, v)}
-              />
+              <HotkeyInput value={shortcuts[row.key]} onChange={(v) => updateField(row.key, v)} />
             </Row>
           ))}
           {Array.from({ length: 8 }).map((_, i) => (

@@ -1,9 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  getCurrentWindow,
-  LogicalPosition,
-  LogicalSize,
-} from "@tauri-apps/api/window";
+import { getCurrentWindow, LogicalPosition, LogicalSize } from "@tauri-apps/api/window";
 import { AvatarBar } from "./components/AvatarBar";
 import { BroadcastToggle } from "./components/BroadcastToggle";
 import { PanicIndicator } from "./components/PanicIndicator";
@@ -73,9 +69,7 @@ export default function App() {
         ? (saved as [number, number])
         : [SETTINGS_DEFAULT_SIZE.width, SETTINGS_DEFAULT_SIZE.height];
       await win.setResizable(true);
-      await win.setMinSize(
-        new LogicalSize(SETTINGS_MIN_SIZE.width, SETTINGS_MIN_SIZE.height),
-      );
+      await win.setMinSize(new LogicalSize(SETTINGS_MIN_SIZE.width, SETTINGS_MIN_SIZE.height));
       await win.setSize(new LogicalSize(target[0], target[1]));
       viewRef.current = "settings";
       setView("settings");
@@ -134,9 +128,7 @@ export default function App() {
         else useDoclickStore.setState({ broadcastLive: false });
       }),
       onError((p) => useDoclickStore.setState({ lastError: p.message })),
-      onFocusedWindowChanged((p) =>
-        useDoclickStore.setState({ focusedHwnd: p.focused_hwnd }),
-      ),
+      onFocusedWindowChanged((p) => useDoclickStore.setState({ focusedHwnd: p.focused_hwnd })),
       onOpenSettings(() => {
         if (viewRef.current === "overlay") enterSettings();
       }),
@@ -169,9 +161,7 @@ export default function App() {
   const orientation = useDoclickStore((s) => s.orientation);
   const overlaySizes = useDoclickStore((s) => s.overlaySizes);
   const hydrated = useDoclickStore((s) => s.hydrated);
-  const visibleCount = useDoclickStore(
-    (s) => s.windows.filter((w) => w.profile != null).length,
-  );
+  const visibleCount = useDoclickStore((s) => s.windows.filter((w) => w.profile != null).length);
 
   // Apply the overlay size when its derivation inputs change. View
   // transitions are *not* driven from here — enterSettings/exitSettings
@@ -272,11 +262,7 @@ export default function App() {
 
   return (
     <div className="relative flex h-screen w-screen flex-col overflow-hidden rounded-xl border border-border/50 bg-background shadow-2xl">
-      <TitleBar
-        title="Doclick"
-        showMaximize={false}
-        onOpenSettings={() => enterSettings()}
-      />
+      <TitleBar title="Doclick" showMaximize={false} onOpenSettings={() => enterSettings()} />
       <div
         className="relative flex items-center gap-2 w-full px-3"
         style={{ height: HORIZONTAL_BAR_HEIGHT }}

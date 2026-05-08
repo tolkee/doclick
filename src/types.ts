@@ -67,10 +67,7 @@ export interface StateSnapshot {
   shortcuts: ShortcutBindings;
 }
 
-export type BroadcastReason =
-  | "user"
-  | "auto-disabled-foreground-mismatch"
-  | "panic-hotkey";
+export type BroadcastReason = "user" | "auto-disabled-foreground-mismatch" | "panic-hotkey";
 
 export interface WindowsChangedPayload {
   windows: WindowEntry[];

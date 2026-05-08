@@ -49,11 +49,7 @@ interface DoclickState {
   setMainCharacter: (id: string | null) => Promise<void>;
   setProfileOrder: (ids: string[]) => Promise<void>;
   setOrientation: (orientation: Orientation) => Promise<void>;
-  saveOverlaySize: (
-    orientation: Orientation,
-    width: number,
-    height: number,
-  ) => Promise<void>;
+  saveOverlaySize: (orientation: Orientation, width: number, height: number) => Promise<void>;
   saveSettingsSize: (width: number, height: number) => Promise<void>;
   setShortcuts: (shortcuts: ShortcutBindings) => Promise<void>;
   setPanicHotkey: (accelerator: string) => Promise<void>;
@@ -104,8 +100,7 @@ export const useDoclickStore = create<DoclickState>((set, get) => ({
   },
 
   setWindows: (w) => set({ windows: w }),
-  setBroadcast: (enabled, reason) =>
-    set({ broadcastEnabled: enabled, broadcastReason: reason }),
+  setBroadcast: (enabled, reason) => set({ broadcastEnabled: enabled, broadcastReason: reason }),
   setBroadcastLive: (live) => set({ broadcastLive: live }),
   setError: (msg) => set({ lastError: msg }),
 
