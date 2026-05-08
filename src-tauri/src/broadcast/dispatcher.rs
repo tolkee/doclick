@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use crossbeam_channel::{bounded, Receiver, Sender, TrySendError};
 use once_cell::sync::OnceCell;
-use tauri::{AppHandle, Emitter};
+use tauri::AppHandle;
 use windows::Win32::UI::Input::KeyboardAndMouse::{
     MapVirtualKeyW, SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, INPUT_MOUSE, KEYBDINPUT,
     KEYBD_EVENT_FLAGS, KEYEVENTF_KEYUP, KEYEVENTF_SCANCODE, MAPVK_VK_TO_VSC, MOUSEEVENTF_ABSOLUTE,
@@ -11,38 +11,15 @@ use windows::Win32::UI::Input::KeyboardAndMouse::{
     MOUSEINPUT,
 };
 
-use crate::events::{BroadcastTickPayload, ErrorPayload, EVT_BROADCAST_TICK, EVT_ERROR};
+use crate::events::{
+    emit_or_log, BroadcastTickPayload, ErrorPayload, EVT_BROADCAST_TICK, EVT_ERROR,
+};
 use crate::state::AppState;
 use crate::windows::focus::{current_foreground, focus_window};
 use crate::windows::geometry::screen_to_absolute;
 
 use super::translate::translate_click;
-use super::BroadcastJob;
-
-const QUEUE_CAPACITY: usize = 4;
-const FOREGROUND_WAIT: Duration = Duration::from_millis(120);
-/// Delay between the user's click and the first follower focus, so the source
-/// window finishes processing DOWN+UP before we steal focus.
-const PRE_DISPATCH_DELAY: Duration = Duration::from_millis(80);
-/// Some games ignore zero-duration clicks; real human clicks are ~30-50ms.
-const CLICK_DOWN_UP_GAP: Duration = Duration::from_millis(20);
-/// Hold the follower foreground after sending input so its message pump can
-/// ingest the click before we steal focus to the next target. Roughly 2-3
-/// frames at 30 FPS — Dofus dips below that during loading screens.
-const POST_SEND_HOLD: Duration = Duration::from_millis(80);
-/// Times we re-check the foreground after `focus_with_retries` succeeds and
-/// re-focus on drift. Single-shot recovery isn't enough: the FG can re-drift
-/// in the microseconds between recovery and SendInput.
-const DRIFT_RECOVERY_TRIES: u32 = 3;
-/// Minimum gap between confirming foreground on the target and firing
-/// SendInput, so the target's pump can drain WM_ACTIVATE / WM_SETFOCUS first.
-/// Without this, Unity sees the window as "not yet focused" when the click
-/// arrives and silently drops the input.
-const POST_FOCUS_SETTLE: Duration = Duration::from_millis(30);
-/// Gap between the synthetic mouse-move and the LEFTDOWN. Splitting move
-/// from press lets the game update hover state on one frame before the press
-/// lands on the next; combining them loses clicks during focus transitions.
-const MOVE_TO_DOWN_GAP: Duration = Duration::from_millis(10);
+use super::{BroadcastJob, BroadcastTimings};
 
 static SENDER: OnceCell<Sender<BroadcastJob>> = OnceCell::new();
 static DISPATCHING: AtomicBool = AtomicBool::new(false);
@@ -65,17 +42,18 @@ pub fn try_enqueue(job: BroadcastJob) -> bool {
     }
 }
 
-pub fn start(app: AppHandle, state: AppState) {
-    let (tx, rx) = bounded::<BroadcastJob>(QUEUE_CAPACITY);
+pub fn start(app: AppHandle, state: AppState) -> std::io::Result<()> {
+    let timings = BroadcastTimings::default();
+    let (tx, rx) = bounded::<BroadcastJob>(timings.queue_capacity);
     let _ = SENDER.set(tx);
 
     std::thread::Builder::new()
         .name("doclick-dispatcher".into())
-        .spawn(move || run(app, state, rx))
-        .expect("spawn dispatcher thread");
+        .spawn(move || run(app, state, rx, timings))?;
+    Ok(())
 }
 
-fn run(app: AppHandle, state: AppState, rx: Receiver<BroadcastJob>) {
+fn run(app: AppHandle, state: AppState, rx: Receiver<BroadcastJob>, timings: BroadcastTimings) {
     while let Ok(job) = rx.recv() {
         let source_hwnd = match &job {
             BroadcastJob::Click { source_hwnd, .. } => *source_hwnd,
@@ -102,29 +80,29 @@ fn run(app: AppHandle, state: AppState, rx: Receiver<BroadcastJob>) {
 
         let original_fg = current_foreground();
         DISPATCHING.store(true, Ordering::Release);
-        let _ = app.emit(
+        emit_or_log(
+            &app,
             EVT_BROADCAST_TICK,
             BroadcastTickPayload::Started {
                 followers: targets.len(),
             },
         );
 
-        // Drain extras that piled up while we were idle. We're committed to
-        // the first-arrived job; this clears the rest so the next `recv`
-        // blocks on a fresh user click rather than serving stale ones.
+        // Committed to the first-arrived job: drop any that piled up so the
+        // next recv blocks on a fresh user click instead of stale ones.
         while rx.try_recv().is_ok() {}
 
-        std::thread::sleep(PRE_DISPATCH_DELAY);
+        std::thread::sleep(timings.pre_dispatch_delay);
 
         let mut ok = 0usize;
         let mut failed = 0usize;
         for target in &targets {
-            if dispatch_one(&app, &job, source_hwnd, *target) {
+            if dispatch_one(&app, &job, source_hwnd, *target, &timings) {
                 ok += 1;
             } else {
                 failed += 1;
             }
-            std::thread::sleep(POST_SEND_HOLD);
+            std::thread::sleep(timings.post_send_hold);
         }
 
         tracing::debug!(ok, failed, "dispatcher: job complete");
@@ -134,21 +112,27 @@ fn run(app: AppHandle, state: AppState, rx: Receiver<BroadcastJob>) {
         } else {
             source_hwnd
         };
-        let _ = focus_window(restore_target, FOREGROUND_WAIT);
+        let _ = focus_window(restore_target, timings.foreground_wait);
 
         DISPATCHING.store(false, Ordering::Release);
 
-        let _ = app.emit(
+        emit_or_log(
+            &app,
             EVT_BROADCAST_TICK,
             BroadcastTickPayload::Finished { ok, failed },
         );
     }
 }
 
-fn dispatch_one(app: &AppHandle, job: &BroadcastJob, source_hwnd: isize, target_hwnd: isize) -> bool {
-    // Translate before focusing the target. translate_click doesn't need the
-    // target foreground, and pulling it out shrinks the critical window
-    // between focus-confirmed and SendInput-fired.
+fn dispatch_one(
+    app: &AppHandle,
+    job: &BroadcastJob,
+    source_hwnd: isize,
+    target_hwnd: isize,
+    timings: &BroadcastTimings,
+) -> bool {
+    // Translate before focusing the target — shrinks the focus-to-SendInput
+    // window during which foreground drift can drop the click.
     let translated_click = match job {
         BroadcastJob::Click { screen_x, screen_y, .. } => {
             match translate_click(source_hwnd, target_hwnd, *screen_x, *screen_y) {
@@ -166,13 +150,14 @@ fn dispatch_one(app: &AppHandle, job: &BroadcastJob, source_hwnd: isize, target_
         BroadcastJob::Key { .. } => None,
     };
 
-    if !focus_with_retries(target_hwnd) {
+    if !focus_with_retries(target_hwnd, timings) {
         tracing::warn!(
             target = format!("{target_hwnd:#x}"),
             reason = "focus_failed",
             "dispatcher: focus failed across retries (Win32 focus-stealing prevention or process integrity mismatch — try running doclick as admin if Dofus is elevated)"
         );
-        let _ = app.emit(
+        emit_or_log(
+            app,
             EVT_ERROR,
             ErrorPayload {
                 message: format!("could not focus target {target_hwnd:#x}"),
@@ -183,12 +168,12 @@ fn dispatch_one(app: &AppHandle, job: &BroadcastJob, source_hwnd: isize, target_
     }
 
     let mut stable = false;
-    for _ in 0..DRIFT_RECOVERY_TRIES {
+    for _ in 0..timings.drift_recovery_tries {
         if current_foreground() == target_hwnd {
             stable = true;
             break;
         }
-        if !focus_with_retries(target_hwnd) {
+        if !focus_with_retries(target_hwnd, timings) {
             break;
         }
     }
@@ -198,7 +183,8 @@ fn dispatch_one(app: &AppHandle, job: &BroadcastJob, source_hwnd: isize, target_
             reason = "drift_unrecoverable",
             "dispatcher: foreground would not stay on target across retries, click dropped"
         );
-        let _ = app.emit(
+        emit_or_log(
+            app,
             EVT_ERROR,
             ErrorPayload {
                 message: format!("foreground drift on target {target_hwnd:#x}"),
@@ -208,12 +194,12 @@ fn dispatch_one(app: &AppHandle, job: &BroadcastJob, source_hwnd: isize, target_
         return false;
     }
 
-    std::thread::sleep(POST_FOCUS_SETTLE);
+    std::thread::sleep(timings.post_focus_settle);
 
     match job {
         BroadcastJob::Click { .. } => {
             let (tx, ty) = translated_click.expect("pre-translated for Click jobs");
-            let ok = send_click(tx, ty);
+            let ok = send_click(tx, ty, timings);
             if !ok {
                 tracing::warn!(
                     target = format!("{target_hwnd:#x}"),
@@ -241,22 +227,21 @@ fn dispatch_one(app: &AppHandle, job: &BroadcastJob, source_hwnd: isize, target_
 }
 
 /// Focus the target with up to 3 attempts and a backoff between them. Each
-/// `focus_window` call re-arms focus-stealing rights, so each attempt is
-/// independent — important because the most common failure mode is the OS
-/// denying focus changes during rapid back-to-back attempts.
-fn focus_with_retries(target_hwnd: isize) -> bool {
-    if focus_window(target_hwnd, FOREGROUND_WAIT) {
+/// `focus_window` call re-arms focus-stealing rights, so attempts are
+/// independent — necessary because the OS denies rapid focus changes.
+fn focus_with_retries(target_hwnd: isize, timings: &BroadcastTimings) -> bool {
+    if focus_window(target_hwnd, timings.foreground_wait) {
         return true;
     }
     std::thread::sleep(Duration::from_millis(15));
-    if focus_window(target_hwnd, FOREGROUND_WAIT * 2) {
+    if focus_window(target_hwnd, timings.foreground_wait * 2) {
         return true;
     }
     std::thread::sleep(Duration::from_millis(30));
-    focus_window(target_hwnd, FOREGROUND_WAIT * 2)
+    focus_window(target_hwnd, timings.foreground_wait * 2)
 }
 
-fn send_click(screen_x: i32, screen_y: i32) -> bool {
+fn send_click(screen_x: i32, screen_y: i32, timings: &BroadcastTimings) -> bool {
     let (dx, dy) = screen_to_absolute(screen_x, screen_y);
     let mv = [mouse_input(
         dx,
@@ -275,9 +260,9 @@ fn send_click(screen_x: i32, screen_y: i32) -> bool {
     )];
     let cb = std::mem::size_of::<INPUT>() as i32;
     let move_ok = unsafe { SendInput(&mv, cb) == 1 };
-    std::thread::sleep(MOVE_TO_DOWN_GAP);
+    std::thread::sleep(timings.move_to_down_gap);
     let down_ok = unsafe { SendInput(&down, cb) == 1 };
-    std::thread::sleep(CLICK_DOWN_UP_GAP);
+    std::thread::sleep(timings.click_down_up_gap);
     let up_ok = unsafe { SendInput(&up, cb) == 1 };
     move_ok && down_ok && up_ok
 }
