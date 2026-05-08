@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.1](https://github.com/tolkee/doclick/compare/v0.6.0...v0.6.1) (2026-05-08)
+
+
+### Bug Fixes
+
+* **ci:** use draft release + gh upload, replace tauri-action ([56acb45](https://github.com/tolkee/doclick/commit/56acb457140ff5bbacf4ed258f63d41ddf4cc0d6))
+
 ## [0.6.0](https://github.com/tolkee/doclick/compare/v0.5.0...v0.6.0) (2026-05-07)
 
 
