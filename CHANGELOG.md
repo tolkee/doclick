@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.0](https://github.com/tolkee/doclick/compare/v0.6.1...v0.7.0) (2026-05-08)
+
+
+### Features
+
+* detection-aware import CTAs and class subtitles ([4e06eea](https://github.com/tolkee/doclick/commit/4e06eea7fc61d61fef89ab00f8a5307466f17e7b))
+* kebab menu, draggable surfaces, shared settings position ([#15](https://github.com/tolkee/doclick/issues/15)) ([51aa3f6](https://github.com/tolkee/doclick/commit/51aa3f6957ed0cd7088a8537f3dd67b74ede1d56))
+
 ## [0.6.1](https://github.com/tolkee/doclick/compare/v0.6.0...v0.6.1) (2026-05-08)
 
 
