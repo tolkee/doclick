@@ -14,6 +14,7 @@ jobs:
   release-please:
     runs-on: ubuntu-latest
     outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
       tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
       - uses: googleapis/release-please-action@v4
@@ -24,10 +25,7 @@ jobs:
 
   build-windows:
     needs: release-please
-    # release-please pushed the tag and (with skip-github-release) did NOT
-    # create a GitHub Release. Use tag_name as the trigger: non-empty when
-    # release-please bumped + tagged, empty on every other push to main.
-    if: ${{ needs.release-please.outputs.tag_name != '' }}
+    if: ${{ needs.release-please.outputs.release_created == 'true' }}
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -48,16 +46,15 @@ jobs:
       - name: Install JS dependencies
         run: bun install --frozen-lockfile
 
-      - name: Build and create release
-        # tauri-action is the sole creator of the GitHub Release. Builds
-        # the NSIS installer, then creates a published release at the
-        # tag release-please pushed, with the .exe attached. The release
-        # appears once, with the installer already there.
-        uses: tauri-apps/tauri-action@v0
+      - name: Build NSIS installer
+        run: bun run tauri build
+
+      - name: Attach installer and publish release
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tagName: ${{ needs.release-please.outputs.tag_name }}
-          releaseName: "Doclick ${{ needs.release-please.outputs.tag_name }}"
-          releaseDraft: false
-          tauriScript: bun run tauri
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          gh release upload "${{ needs.release-please.outputs.tag_name }}" \
+            src-tauri/target/release/bundle/nsis/*.exe --clobber
+          gh release edit "${{ needs.release-please.outputs.tag_name }}" \
+            --draft=false
