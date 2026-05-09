@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
 import { X } from "lucide-react";
+import { useEffect, useState } from "react";
 import { cn } from "../lib/utils";
 
 interface Props {
@@ -67,7 +67,7 @@ export function HotkeyInput({ value, onChange, placeholder, className = "" }: Pr
     <div className={cn("relative inline-flex items-center", className)}>
       <input
         readOnly
-        value={recording ? "Appuyer…" : draft ?? ""}
+        value={recording ? "Appuyer…" : (draft ?? "")}
         placeholder={placeholder ?? "Cliquer pour définir"}
         onClick={() => setRecording(true)}
         onContextMenu={(e) => e.preventDefault()}
@@ -77,9 +77,7 @@ export function HotkeyInput({ value, onChange, placeholder, className = "" }: Pr
         onWheel={onWheel}
         className={cn(
           "h-8 w-44 cursor-pointer rounded-md border border-input bg-transparent pl-2 pr-7 text-sm outline-none placeholder:text-muted-foreground",
-          recording
-            ? "ring-2 ring-ring ring-offset-2 ring-offset-background"
-            : "",
+          recording ? "ring-2 ring-ring ring-offset-2 ring-offset-background" : "",
         )}
       />
       {draft && (

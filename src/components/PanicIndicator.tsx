@@ -5,7 +5,5 @@ import { useDoclickStore } from "../store/useDoclickStore";
 export function PanicIndicator() {
   const live = useDoclickStore((s) => s.broadcastLive);
   if (!live) return null;
-  return (
-    <div className="pointer-events-none absolute inset-0 broadcast-live-frame rounded-xl" />
-  );
+  return <div className="pointer-events-none absolute inset-0 broadcast-live-frame rounded-xl" />;
 }

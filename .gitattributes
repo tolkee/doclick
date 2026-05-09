@@ -1,0 +1,18 @@
+# Normalize text files to LF in the repo and on every working tree.
+# Without this, Windows checkouts default to CRLF (via core.autocrlf=true)
+# and Biome's line-ending check disagrees between the dev machine and CI.
+* text=auto eol=lf
+
+# Binary assets — never normalize.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.icns binary
+*.exe binary
+*.dll binary
+
+# Lockfiles — text but never modify.
+bun.lock -diff
+package-lock.json -diff
+Cargo.lock -diff

@@ -76,17 +76,12 @@ pub enum BroadcastReason {
     PanicHotkey,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum Orientation {
+    #[default]
     Horizontal,
     Vertical,
-}
-
-impl Default for Orientation {
-    fn default() -> Self {
-        Orientation::Horizontal
-    }
 }
 
 /// Persisted user-resized overlay dimensions, per orientation. Stored in
@@ -131,8 +126,8 @@ pub struct InnerState {
     pub profiles: Vec<CharacterProfile>,
     pub live_windows: Vec<LiveWindow>,
     pub broadcast_enabled: bool,
-    pub broadcast_keys: Vec<u32>,        // virtual-key codes whitelisted for relay
-    pub panic_hotkey: String,            // accelerator string, e.g. "Ctrl+Shift+F12"
+    pub broadcast_keys: Vec<u32>, // virtual-key codes whitelisted for relay
+    pub panic_hotkey: String,     // accelerator string, e.g. "Ctrl+Shift+F12"
     pub pvp_warning_acknowledged: bool,
     pub overlay_position: Option<(i32, i32)>,
     pub overlay_sizes: OverlaySizes,
@@ -301,4 +296,23 @@ pub struct StateSnapshot {
     pub overlay_sizes: OverlaySizes,
     pub settings_size: Option<(u32, u32)>,
     pub shortcuts: ShortcutBindings,
+}
+
+impl InnerState {
+    pub fn to_snapshot(&self, windows: Vec<WindowEntry>) -> StateSnapshot {
+        StateSnapshot {
+            windows,
+            profiles: self.profiles.clone(),
+            broadcast_enabled: self.broadcast_enabled,
+            broadcast_keys: self.broadcast_keys.clone(),
+            panic_hotkey: self.panic_hotkey.clone(),
+            pvp_warning_acknowledged: self.pvp_warning_acknowledged,
+            main_character_id: self.main_character_id.clone(),
+            profile_order: self.profile_order.clone(),
+            orientation: self.orientation,
+            overlay_sizes: self.overlay_sizes,
+            settings_size: self.settings_size,
+            shortcuts: self.shortcuts.clone(),
+        }
+    }
 }

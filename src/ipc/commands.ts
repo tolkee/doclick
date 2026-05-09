@@ -14,8 +14,7 @@ export const getStateSnapshot = () => invoke<StateSnapshot>("get_state_snapshot"
 export const setBroadcastEnabled = (enabled: boolean) =>
   invoke<void>("set_broadcast_enabled", { enabled });
 
-export const setBroadcastKeys = (keys: number[]) =>
-  invoke<void>("set_broadcast_keys", { keys });
+export const setBroadcastKeys = (keys: number[]) => invoke<void>("set_broadcast_keys", { keys });
 
 export const setPanicHotkey = (accelerator: string) =>
   invoke<void>("set_panic_hotkey", { accelerator });
@@ -27,8 +26,7 @@ export const deleteProfile = (id: string) => invoke<void>("delete_profile", { id
 
 export const acknowledgePvpWarning = () => invoke<void>("acknowledge_pvp_warning");
 
-export const focusDofusWindow = (hwnd: number) =>
-  invoke<void>("focus_dofus_window", { hwnd });
+export const focusDofusWindow = (hwnd: number) => invoke<void>("focus_dofus_window", { hwnd });
 
 export const cycleFocus = () => invoke<void>("cycle_focus");
 
@@ -41,11 +39,9 @@ export const saveOverlaySize = (orientation: Orientation, width: number, height:
 export const saveSettingsSize = (width: number, height: number) =>
   invoke<void>("save_settings_size", { width, height });
 
-export const setMainCharacter = (id: string | null) =>
-  invoke<void>("set_main_character", { id });
+export const setMainCharacter = (id: string | null) => invoke<void>("set_main_character", { id });
 
-export const setProfileOrder = (ids: string[]) =>
-  invoke<void>("set_profile_order", { ids });
+export const setProfileOrder = (ids: string[]) => invoke<void>("set_profile_order", { ids });
 
 export const setOrientation = (orientation: Orientation) =>
   invoke<void>("set_orientation", { orientation });

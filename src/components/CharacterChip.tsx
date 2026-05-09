@@ -1,5 +1,5 @@
-import { useDoclickStore } from "../store/useDoclickStore";
 import { avatarUrlFor, classDisplayName } from "../lib/dofusClass";
+import { useDoclickStore } from "../store/useDoclickStore";
 import type { WindowEntry } from "../types";
 import { Crown } from "./Crown";
 
@@ -13,14 +13,8 @@ export function CharacterChip({ entry }: Props) {
   const focusedHwnd = useDoclickStore((s) => s.focusedHwnd);
 
   const profile = entry.profile;
-  const name =
-    profile?.display_name ??
-    entry.character_name ??
-    entry.title.slice(0, 24);
-  const initials = (name.match(/[A-Za-z0-9]/g) ?? ["?"])
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
+  const name = profile?.display_name ?? entry.character_name ?? entry.title.slice(0, 24);
+  const initials = (name.match(/[A-Za-z0-9]/g) ?? ["?"]).slice(0, 2).join("").toUpperCase();
 
   const dofusClass = entry.dofus_class ?? profile?.dofus_class ?? null;
   const avatarSrc = avatarUrlFor(dofusClass);
@@ -28,12 +22,11 @@ export function CharacterChip({ entry }: Props) {
   const isFocused = focusedHwnd === entry.hwnd;
   const className = classDisplayName(dofusClass);
 
-  const avatarRing = isFocused
-    ? "ring-2 ring-sky-400 ring-offset-1 ring-offset-zinc-900"
-    : "";
+  const avatarRing = isFocused ? "ring-2 ring-sky-400 ring-offset-1 ring-offset-zinc-900" : "";
 
   return (
     <button
+      type="button"
       onClick={() => focusWindow(entry.hwnd)}
       data-tauri-drag-region="false"
       className="group relative flex-none rounded-full hover:brightness-110 transition"
@@ -52,9 +45,7 @@ export function CharacterChip({ entry }: Props) {
         ) : (
           <span>{initials}</span>
         )}
-        {isFocused && (
-          <span className="absolute inset-0 bg-sky-400/30 pointer-events-none" />
-        )}
+        {isFocused && <span className="absolute inset-0 bg-sky-400/30 pointer-events-none" />}
         <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 ring-2 ring-zinc-900" />
         {isMain && (
           <span className="absolute inset-0 flex items-center justify-center pointer-events-none text-yellow-400 drop-shadow-[0_0_3px_rgba(0,0,0,0.85)]">

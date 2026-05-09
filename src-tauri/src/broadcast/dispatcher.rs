@@ -69,6 +69,7 @@ pub fn start(app: AppHandle, state: AppState) {
     let (tx, rx) = bounded::<BroadcastJob>(QUEUE_CAPACITY);
     let _ = SENDER.set(tx);
 
+    #[allow(clippy::expect_used)] // unrecoverable at startup
     std::thread::Builder::new()
         .name("doclick-dispatcher".into())
         .spawn(move || run(app, state, rx))
@@ -145,24 +146,29 @@ fn run(app: AppHandle, state: AppState, rx: Receiver<BroadcastJob>) {
     }
 }
 
-fn dispatch_one(app: &AppHandle, job: &BroadcastJob, source_hwnd: isize, target_hwnd: isize) -> bool {
+fn dispatch_one(
+    app: &AppHandle,
+    job: &BroadcastJob,
+    source_hwnd: isize,
+    target_hwnd: isize,
+) -> bool {
     // Translate before focusing the target. translate_click doesn't need the
     // target foreground, and pulling it out shrinks the critical window
     // between focus-confirmed and SendInput-fired.
     let translated_click = match job {
-        BroadcastJob::Click { screen_x, screen_y, .. } => {
-            match translate_click(source_hwnd, target_hwnd, *screen_x, *screen_y) {
-                Some(coords) => Some(coords),
-                None => {
-                    tracing::warn!(
-                        target = format!("{target_hwnd:#x}"),
-                        reason = "translate_failed",
-                        "dispatcher: coord translation failed (window minimized or just closed?)"
-                    );
-                    return false;
-                }
+        BroadcastJob::Click {
+            screen_x, screen_y, ..
+        } => match translate_click(source_hwnd, target_hwnd, *screen_x, *screen_y) {
+            Some(coords) => Some(coords),
+            None => {
+                tracing::warn!(
+                    target = format!("{target_hwnd:#x}"),
+                    reason = "translate_failed",
+                    "dispatcher: coord translation failed (window minimized or just closed?)"
+                );
+                return false;
             }
-        }
+        },
         BroadcastJob::Key { .. } => None,
     };
 
@@ -212,6 +218,9 @@ fn dispatch_one(app: &AppHandle, job: &BroadcastJob, source_hwnd: isize, target_
 
     match job {
         BroadcastJob::Click { .. } => {
+            // translate_for_target() above always returns Some for Click jobs;
+            // for Key jobs it returns None and we never reach this arm.
+            #[allow(clippy::expect_used)]
             let (tx, ty) = translated_click.expect("pre-translated for Click jobs");
             let ok = send_click(tx, ty);
             if !ok {
@@ -282,7 +291,11 @@ fn send_click(screen_x: i32, screen_y: i32) -> bool {
     move_ok && down_ok && up_ok
 }
 
-fn mouse_input(dx: i32, dy: i32, flags: windows::Win32::UI::Input::KeyboardAndMouse::MOUSE_EVENT_FLAGS) -> INPUT {
+fn mouse_input(
+    dx: i32,
+    dy: i32,
+    flags: windows::Win32::UI::Input::KeyboardAndMouse::MOUSE_EVENT_FLAGS,
+) -> INPUT {
     INPUT {
         r#type: INPUT_MOUSE,
         Anonymous: INPUT_0 {
