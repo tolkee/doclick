@@ -12,14 +12,15 @@ export function BroadcastToggle() {
   const stateClasses = !enabled
     ? "bg-zinc-700 text-zinc-200 hover:bg-zinc-600"
     : live
-    ? "bg-red-600 text-white ring-2 ring-red-300 animate-pulse"
-    : "bg-emerald-600 text-white hover:bg-emerald-500";
+      ? "bg-red-600 text-white ring-2 ring-red-300 animate-pulse"
+      : "bg-emerald-600 text-white hover:bg-emerald-500";
 
   const tooltip = !enabled ? "Broadcast OFF" : live ? "Diffusion…" : "Broadcast ON";
   const armed = enabled && !live;
 
   return (
     <button
+      type="button"
       onClick={toggle}
       title={tooltip}
       data-tauri-drag-region="false"

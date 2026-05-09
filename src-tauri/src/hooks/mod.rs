@@ -28,6 +28,7 @@ pub fn install(state: AppState, app: AppHandle) {
     let _ = GLOBAL_STATE.set(state);
     let _ = APP_HANDLE.set(app);
 
+    #[allow(clippy::expect_used)] // unrecoverable at startup
     std::thread::Builder::new()
         .name("doclick-hooks".into())
         .spawn(|| unsafe {

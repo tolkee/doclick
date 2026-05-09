@@ -38,21 +38,7 @@ fn app_data_dir(app: &AppHandle) -> Result<PathBuf, CmdError> {
 
 pub fn persist(app: &AppHandle, state: &AppState) -> Result<(), CmdError> {
     let dir = app_data_dir(app)?;
-    let inner = state.read();
-    let cfg = PersistedConfig {
-        profiles: inner.profiles.clone(),
-        broadcast_keys: inner.broadcast_keys.clone(),
-        panic_hotkey: inner.panic_hotkey.clone(),
-        pvp_warning_acknowledged: inner.pvp_warning_acknowledged,
-        overlay_position: inner.overlay_position,
-        overlay_sizes: inner.overlay_sizes,
-        settings_size: inner.settings_size,
-        main_character_id: inner.main_character_id.clone(),
-        profile_order: inner.profile_order.clone(),
-        orientation: inner.orientation,
-        shortcuts: inner.shortcuts.clone(),
-    };
-    drop(inner);
+    let cfg = PersistedConfig::from_inner(&state.read());
     config::save(&dir, &cfg)?;
     Ok(())
 }
@@ -84,21 +70,8 @@ pub fn list_windows(state: State<'_, AppState>) -> Vec<WindowEntry> {
 
 #[tauri::command]
 pub fn get_state_snapshot(state: State<'_, AppState>) -> StateSnapshot {
-    let inner = state.read();
-    StateSnapshot {
-        windows: state.snapshot_windows(),
-        profiles: inner.profiles.clone(),
-        broadcast_enabled: inner.broadcast_enabled,
-        broadcast_keys: inner.broadcast_keys.clone(),
-        panic_hotkey: inner.panic_hotkey.clone(),
-        pvp_warning_acknowledged: inner.pvp_warning_acknowledged,
-        main_character_id: inner.main_character_id.clone(),
-        profile_order: inner.profile_order.clone(),
-        orientation: inner.orientation,
-        overlay_sizes: inner.overlay_sizes,
-        settings_size: inner.settings_size,
-        shortcuts: inner.shortcuts.clone(),
-    }
+    let windows = state.snapshot_windows();
+    state.read().to_snapshot(windows)
 }
 
 #[tauri::command]
@@ -147,7 +120,6 @@ pub fn upsert_profile(
             *existing = profile.clone();
         } else {
             inner.profiles.push(profile.clone());
-            // Append to ordering if not already there.
             if !inner.profile_order.contains(&profile.id) {
                 inner.profile_order.push(profile.id.clone());
             }
@@ -178,10 +150,7 @@ pub fn delete_profile(
 }
 
 #[tauri::command]
-pub fn acknowledge_pvp_warning(
-    app: AppHandle,
-    state: State<'_, AppState>,
-) -> Result<(), CmdError> {
+pub fn acknowledge_pvp_warning(app: AppHandle, state: State<'_, AppState>) -> Result<(), CmdError> {
     state.write().pvp_warning_acknowledged = true;
     persist(&app, &state)?;
     Ok(())
@@ -318,10 +287,7 @@ pub fn set_shortcuts(
 }
 
 #[tauri::command]
-pub fn focus_character_at_index(
-    state: State<'_, AppState>,
-    index: usize,
-) -> Result<(), CmdError> {
+pub fn focus_character_at_index(state: State<'_, AppState>, index: usize) -> Result<(), CmdError> {
     let hwnds = state.ordered_visible_hwnds();
     if let Some(&hwnd) = hwnds.get(index) {
         let _ = focus_window(hwnd, std::time::Duration::from_millis(120));
@@ -348,11 +314,7 @@ pub fn focus_main_character(state: State<'_, AppState>) -> Result<(), CmdError> 
         let main_id = inner.main_character_id.clone();
         match main_id {
             Some(id) => {
-                let title_match = inner
-                    .profiles
-                    .iter()
-                    .find(|p| p.id == id)
-                    .cloned();
+                let title_match = inner.profiles.iter().find(|p| p.id == id).cloned();
                 title_match.and_then(|p| {
                     inner
                         .live_windows

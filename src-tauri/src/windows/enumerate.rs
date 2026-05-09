@@ -52,7 +52,10 @@ unsafe extern "system" fn enum_proc(hwnd: HWND, lparam: LPARAM) -> BOOL {
         Some(name) => name,
         None => return true.into(),
     };
-    if !DOFUS_PROCESS_NAMES.iter().any(|n| n.eq_ignore_ascii_case(&exe)) {
+    if !DOFUS_PROCESS_NAMES
+        .iter()
+        .any(|n| n.eq_ignore_ascii_case(&exe))
+    {
         return true.into();
     }
 

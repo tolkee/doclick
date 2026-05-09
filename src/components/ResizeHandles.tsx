@@ -1,13 +1,6 @@
+import { getCurrentWindow, LogicalPosition, LogicalSize } from "@tauri-apps/api/window";
 import type { PointerEvent as ReactPointerEvent } from "react";
-import {
-  getCurrentWindow,
-  LogicalPosition,
-  LogicalSize,
-} from "@tauri-apps/api/window";
-import {
-  computeOverlayMinSize,
-  SETTINGS_MIN_SIZE,
-} from "../lib/overlaySize";
+import { computeOverlayMinSize, SETTINGS_MIN_SIZE } from "../lib/overlaySize";
 import { useDoclickStore } from "../store/useDoclickStore";
 
 type Direction = "East" | "West" | "North" | "South";
@@ -33,119 +26,117 @@ interface Props {
 /// The OS window has `decorations: false` so Windows draws no native
 /// resize chrome; this component is the only resize affordance.
 export function ResizeHandles({ mode }: Props) {
-  const start =
-    (direction: Direction) =>
-    async (e: ReactPointerEvent<HTMLDivElement>) => {
-      if (e.button !== 0) return;
-      e.preventDefault();
-      e.stopPropagation();
+  const start = (direction: Direction) => async (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
 
-      const handle = e.currentTarget;
-      const pointerId = e.pointerId;
-      handle.setPointerCapture(pointerId);
+    const handle = e.currentTarget;
+    const pointerId = e.pointerId;
+    handle.setPointerCapture(pointerId);
 
-      const win = getCurrentWindow();
-      let initialW = 0;
-      let initialH = 0;
-      let initialX = 0;
-      let initialY = 0;
+    const win = getCurrentWindow();
+    let initialW = 0;
+    let initialH = 0;
+    let initialX = 0;
+    let initialY = 0;
+    try {
+      const factor = await win.scaleFactor();
+      const size = (await win.outerSize()).toLogical(factor);
+      const pos = (await win.outerPosition()).toLogical(factor);
+      initialW = size.width;
+      initialH = size.height;
+      initialX = pos.x;
+      initialY = pos.y;
+    } catch (err) {
+      console.warn("resize: read initial state failed", err);
       try {
-        const factor = await win.scaleFactor();
-        const size = (await win.outerSize()).toLogical(factor);
-        const pos = (await win.outerPosition()).toLogical(factor);
-        initialW = size.width;
-        initialH = size.height;
-        initialX = pos.x;
-        initialY = pos.y;
-      } catch (err) {
-        console.warn("resize: read initial state failed", err);
-        try {
-          handle.releasePointerCapture(pointerId);
-        } catch {}
-        return;
+        handle.releasePointerCapture(pointerId);
+      } catch {}
+      return;
+    }
+
+    const startSx = e.screenX;
+    const startSy = e.screenY;
+    const min = minSizeFor(mode);
+
+    // Throttle setSize/setPosition IPC to one call per frame so a fast
+    // mousemove doesn't queue dozens of redundant updates.
+    let pendingFrame: number | null = null;
+    let pending: {
+      w: number;
+      h: number;
+      x: number;
+      y: number;
+      needsPos: boolean;
+    } | null = null;
+
+    const flush = () => {
+      pendingFrame = null;
+      const p = pending;
+      if (!p) return;
+      // setPosition first for West/North so the right/bottom edge
+      // doesn't briefly overshoot before the size update lands.
+      if (p.needsPos) {
+        win.setPosition(new LogicalPosition(p.x, p.y)).catch(() => {});
+      }
+      win.setSize(new LogicalSize(p.w, p.h)).catch(() => {});
+    };
+
+    const onMove = (ev: PointerEvent) => {
+      const dx = ev.screenX - startSx;
+      const dy = ev.screenY - startSy;
+
+      let newW = initialW;
+      let newH = initialH;
+      let newX = initialX;
+      let newY = initialY;
+      let needsPos = false;
+
+      switch (direction) {
+        case "East":
+          newW = Math.max(min.width, initialW + dx);
+          break;
+        case "West":
+          newW = Math.max(min.width, initialW - dx);
+          newX = initialX + initialW - newW;
+          needsPos = true;
+          break;
+        case "South":
+          newH = Math.max(min.height, initialH + dy);
+          break;
+        case "North":
+          newH = Math.max(min.height, initialH - dy);
+          newY = initialY + initialH - newH;
+          needsPos = true;
+          break;
       }
 
-      const startSx = e.screenX;
-      const startSy = e.screenY;
-      const min = minSizeFor(mode);
-
-      // Throttle setSize/setPosition IPC to one call per frame so a fast
-      // mousemove doesn't queue dozens of redundant updates.
-      let pendingFrame: number | null = null;
-      let pending: {
-        w: number;
-        h: number;
-        x: number;
-        y: number;
-        needsPos: boolean;
-      } | null = null;
-
-      const flush = () => {
-        pendingFrame = null;
-        const p = pending;
-        if (!p) return;
-        // setPosition first for West/North so the right/bottom edge
-        // doesn't briefly overshoot before the size update lands.
-        if (p.needsPos) {
-          win.setPosition(new LogicalPosition(p.x, p.y)).catch(() => {});
-        }
-        win.setSize(new LogicalSize(p.w, p.h)).catch(() => {});
-      };
-
-      const onMove = (ev: PointerEvent) => {
-        const dx = ev.screenX - startSx;
-        const dy = ev.screenY - startSy;
-
-        let newW = initialW;
-        let newH = initialH;
-        let newX = initialX;
-        let newY = initialY;
-        let needsPos = false;
-
-        switch (direction) {
-          case "East":
-            newW = Math.max(min.width, initialW + dx);
-            break;
-          case "West":
-            newW = Math.max(min.width, initialW - dx);
-            newX = initialX + initialW - newW;
-            needsPos = true;
-            break;
-          case "South":
-            newH = Math.max(min.height, initialH + dy);
-            break;
-          case "North":
-            newH = Math.max(min.height, initialH - dy);
-            newY = initialY + initialH - newH;
-            needsPos = true;
-            break;
-        }
-
-        pending = { w: newW, h: newH, x: newX, y: newY, needsPos };
-        if (pendingFrame !== null) return;
-        pendingFrame = requestAnimationFrame(flush);
-      };
-
-      const cleanup = () => {
-        handle.removeEventListener("pointermove", onMove);
-        handle.removeEventListener("pointerup", cleanup);
-        handle.removeEventListener("pointercancel", cleanup);
-        if (pendingFrame !== null) {
-          cancelAnimationFrame(pendingFrame);
-          flush();
-        }
-        try {
-          handle.releasePointerCapture(pointerId);
-        } catch {}
-        if (pending) {
-          persistFinalSize(mode, Math.round(pending.w), Math.round(pending.h));
-        }
-      };
-
-      handle.addEventListener("pointermove", onMove);
-      handle.addEventListener("pointerup", cleanup);
-      handle.addEventListener("pointercancel", cleanup);
+      pending = { w: newW, h: newH, x: newX, y: newY, needsPos };
+      if (pendingFrame !== null) return;
+      pendingFrame = requestAnimationFrame(flush);
     };
+
+    const cleanup = () => {
+      handle.removeEventListener("pointermove", onMove);
+      handle.removeEventListener("pointerup", cleanup);
+      handle.removeEventListener("pointercancel", cleanup);
+      if (pendingFrame !== null) {
+        cancelAnimationFrame(pendingFrame);
+        flush();
+      }
+      try {
+        handle.releasePointerCapture(pointerId);
+      } catch {}
+      if (pending) {
+        persistFinalSize(mode, Math.round(pending.w), Math.round(pending.h));
+      }
+    };
+
+    handle.addEventListener("pointermove", onMove);
+    handle.addEventListener("pointerup", cleanup);
+    handle.addEventListener("pointercancel", cleanup);
+  };
 
   if (mode === "overlay-horizontal") {
     return (
@@ -186,17 +177,15 @@ function Handle({
   onStart: (e: ReactPointerEvent<HTMLDivElement>) => void;
 }) {
   const base =
-    axis === "horizontal"
-      ? "absolute top-0 bottom-0 w-2 z-30"
-      : "absolute left-0 right-0 h-2 z-30";
+    axis === "horizontal" ? "absolute top-0 bottom-0 w-2 z-30" : "absolute left-0 right-0 h-2 z-30";
   const edge =
     direction === "North"
       ? "top-0"
       : direction === "South"
-      ? "bottom-0"
-      : direction === "East"
-      ? "right-0"
-      : "left-0";
+        ? "bottom-0"
+        : direction === "East"
+          ? "right-0"
+          : "left-0";
   return (
     <div
       onPointerDown={onStart}
@@ -209,9 +198,7 @@ function Handle({
 
 function minSizeFor(mode: ResizeMode): { width: number; height: number } {
   if (mode === "settings") return SETTINGS_MIN_SIZE;
-  return computeOverlayMinSize(
-    mode === "overlay-horizontal" ? "horizontal" : "vertical",
-  );
+  return computeOverlayMinSize(mode === "overlay-horizontal" ? "horizontal" : "vertical");
 }
 
 function persistFinalSize(mode: ResizeMode, width: number, height: number) {

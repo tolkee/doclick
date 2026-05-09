@@ -1,8 +1,8 @@
-import { useCallback, useEffect } from "react";
-import { getCurrentWindow } from "@tauri-apps/api/window";
-import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { emit } from "@tauri-apps/api/event";
+import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Minus, Settings as SettingsIcon, X } from "lucide-react";
+import { useCallback, useEffect } from "react";
 import { EVT_OPEN_SETTINGS } from "./ipc/events";
 
 /// Standalone Tauri window content for the kebab menu. Rendered in the
@@ -49,7 +49,10 @@ export default function Menu() {
 
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden rounded-md border border-border/50 bg-background py-1 shadow-2xl">
-      <MenuItem onClick={onSettings} icon={<SettingsIcon className="h-3.5 w-3.5" strokeWidth={2} />}>
+      <MenuItem
+        onClick={onSettings}
+        icon={<SettingsIcon className="h-3.5 w-3.5" strokeWidth={2} />}
+      >
         Paramètres
       </MenuItem>
       <MenuItem onClick={onMinimize} icon={<Minus className="h-3.5 w-3.5" strokeWidth={2} />}>

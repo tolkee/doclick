@@ -1,9 +1,9 @@
 import { create } from "zustand";
 import * as cmd from "../ipc/commands";
 import {
-  EMPTY_SHORTCUT_BINDINGS,
   type BroadcastReason,
   type CharacterProfile,
+  EMPTY_SHORTCUT_BINDINGS,
   type Orientation,
   type OverlaySizes,
   type ShortcutBindings,
@@ -33,14 +33,12 @@ interface DoclickState {
   /// Rust restored on app startup.
   hydrated: boolean;
 
-  // sync
   hydrate: () => Promise<void>;
   setWindows: (w: WindowEntry[]) => void;
   setBroadcast: (enabled: boolean, reason: BroadcastReason | null) => void;
   setBroadcastLive: (live: boolean) => void;
   setError: (msg: string | null) => void;
 
-  // actions
   toggleBroadcast: () => Promise<void>;
   upsertProfile: (p: CharacterProfile) => Promise<void>;
   deleteProfile: (id: string) => Promise<void>;
@@ -49,11 +47,7 @@ interface DoclickState {
   setMainCharacter: (id: string | null) => Promise<void>;
   setProfileOrder: (ids: string[]) => Promise<void>;
   setOrientation: (orientation: Orientation) => Promise<void>;
-  saveOverlaySize: (
-    orientation: Orientation,
-    width: number,
-    height: number,
-  ) => Promise<void>;
+  saveOverlaySize: (orientation: Orientation, width: number, height: number) => Promise<void>;
   saveSettingsSize: (width: number, height: number) => Promise<void>;
   setShortcuts: (shortcuts: ShortcutBindings) => Promise<void>;
   setPanicHotkey: (accelerator: string) => Promise<void>;
@@ -104,8 +98,7 @@ export const useDoclickStore = create<DoclickState>((set, get) => ({
   },
 
   setWindows: (w) => set({ windows: w }),
-  setBroadcast: (enabled, reason) =>
-    set({ broadcastEnabled: enabled, broadcastReason: reason }),
+  setBroadcast: (enabled, reason) => set({ broadcastEnabled: enabled, broadcastReason: reason }),
   setBroadcastLive: (live) => set({ broadcastLive: live }),
   setError: (msg) => set({ lastError: msg }),
 

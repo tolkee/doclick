@@ -1,5 +1,5 @@
-import { LogicalSize } from "@tauri-apps/api/window";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { LogicalSize } from "@tauri-apps/api/window";
 import type { Orientation } from "../types";
 
 // =================== Layout constants ===================
@@ -77,14 +77,10 @@ export function computeOverlaySize(args: OverlaySizeArgs): {
 } {
   const count = args.visibleCount;
   if (args.orientation === "horizontal") {
-    const chipsAxis =
-      count > 0 ? count * CHIP_BLOCK : HORIZONTAL_EMPTY_MAIN_AXIS;
+    const chipsAxis = count > 0 ? count * CHIP_BLOCK : HORIZONTAL_EMPTY_MAIN_AXIS;
     const min = computeOverlayMinSize("horizontal");
     return {
-      width: Math.max(
-        args.savedMainAxis ?? HORIZONTAL_CONTROLS_WIDTH + chipsAxis,
-        min.width,
-      ),
+      width: Math.max(args.savedMainAxis ?? HORIZONTAL_CONTROLS_WIDTH + chipsAxis, min.width),
       height: HORIZONTAL_BAR_HEIGHT,
     };
   }
@@ -93,8 +89,7 @@ export function computeOverlaySize(args: OverlaySizeArgs): {
   return {
     width: VERTICAL_BAR_WIDTH,
     height: Math.max(
-      args.savedMainAxis ??
-        VERTICAL_TOPBAR_HEIGHT + VERTICAL_CONTROLS_HEIGHT + chipsAxis,
+      args.savedMainAxis ?? VERTICAL_TOPBAR_HEIGHT + VERTICAL_CONTROLS_HEIGHT + chipsAxis,
       min.height,
     ),
   };

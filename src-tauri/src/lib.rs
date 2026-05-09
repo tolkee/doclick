@@ -5,6 +5,7 @@ use tauri::{Emitter, Manager};
 mod broadcast;
 mod commands;
 mod config;
+mod diagnostics;
 mod events;
 mod hooks;
 mod shortcuts;
@@ -24,11 +25,13 @@ pub fn run() {
         )
         .init();
 
+    diagnostics::install_panic_hook();
+
     enable_per_monitor_dpi_awareness();
 
     let app_state = AppState::default();
 
-    tauri::Builder::default()
+    let result = tauri::Builder::default()
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
                 .with_handler(shortcuts::dispatch)
@@ -67,8 +70,8 @@ pub fn run() {
         .setup(move |app| {
             let handle = app.handle().clone();
 
-            // Load persisted config.
             let (saved_position, saved_size) = if let Ok(dir) = handle.path().app_data_dir() {
+                diagnostics::set_crash_dir(dir.clone());
                 let cfg = config::load(&dir);
                 let mut inner = app_state.write();
                 inner.profiles = cfg.profiles;
@@ -132,8 +135,12 @@ pub fn run() {
 
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running doclick");
+        .run(tauri::generate_context!());
+
+    if let Err(err) = result {
+        tracing::error!(?err, "fatal: tauri runtime exited");
+        std::process::exit(1);
+    }
 }
 
 fn spawn_window_watcher(app: tauri::AppHandle, state: AppState) {

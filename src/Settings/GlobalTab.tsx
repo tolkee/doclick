@@ -1,9 +1,9 @@
 import { ArrowRight } from "lucide-react";
-import { useDoclickStore } from "../store/useDoclickStore";
-import type { Orientation } from "../types";
 import { Button } from "../components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
 import type { SettingsTabId } from "../Settings";
+import { useDoclickStore } from "../store/useDoclickStore";
+import type { Orientation } from "../types";
 
 interface Props {
   onNavigate: (tab: SettingsTabId) => void;
@@ -18,25 +18,17 @@ export function GlobalTab({ onNavigate }: Props) {
   // A "character window" is one whose title parsed into a character name —
   // launchers and other Dofus-process windows have character_name === null.
   // Mirrors the overlay placeholder logic in AvatarBar.
-  const characterWindowCount = windows.filter(
-    (w) => w.character_name !== null,
-  ).length;
+  const characterWindowCount = windows.filter((w) => w.character_name !== null).length;
 
   return (
     <div className="space-y-6 max-w-2xl">
       <header className="space-y-3">
-        <img
-          src="/logo.png"
-          alt="Doclick"
-          className="h-16 w-16 select-none"
-          draggable={false}
-        />
+        <img src="/logo.png" alt="Doclick" className="h-16 w-16 select-none" draggable={false} />
         <h1 className="text-3xl font-bold tracking-tight">Doclick</h1>
         <p className="text-sm text-muted-foreground">
-          Doclick est un outil d'aide pour les teams multicompte sur Dofus. Il
-          permet de faciliter l'accomplissement de quêtes en reproduisant les
-          interactions faites sur le personnage principal sur les autres
-          comptes de la team. Doclick propose également des outils pour
+          Doclick est un outil d'aide pour les teams multicompte sur Dofus. Il permet de faciliter
+          l'accomplissement de quêtes en reproduisant les interactions faites sur le personnage
+          principal sur les autres comptes de la team. Doclick propose également des outils pour
           naviguer entre les comptes d'une team.
         </p>
       </header>
@@ -57,8 +49,7 @@ export function GlobalTab({ onNavigate }: Props) {
             </>
           ) : (
             <p className="text-sm font-medium">
-              Aucune fenêtre Dofus ouverte. Connectez-vous à un personnage pour
-              commencer.
+              Aucune fenêtre Dofus ouverte. Connectez-vous à un personnage pour commencer.
             </p>
           )}
         </div>

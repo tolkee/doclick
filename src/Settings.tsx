@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
-import { GlobalTab } from "./Settings/GlobalTab";
-import { CharactersTab } from "./Settings/CharactersTab";
-import { ShortcutsTab } from "./Settings/ShortcutsTab";
-import { AboutTab } from "./Settings/AboutTab";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs";
 import { TitleBar } from "./components/TitleBar";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs";
+import { AboutTab } from "./Settings/AboutTab";
+import { CharactersTab } from "./Settings/CharactersTab";
+import { GlobalTab } from "./Settings/GlobalTab";
+import { ShortcutsTab } from "./Settings/ShortcutsTab";
 
 export type SettingsTabId = "global" | "characters" | "shortcuts" | "about";
 

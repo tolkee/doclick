@@ -3,7 +3,8 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 
 use crate::state::{
-    default_broadcast_keys, CharacterProfile, Orientation, OverlaySizes, ShortcutBindings,
+    default_broadcast_keys, CharacterProfile, InnerState, Orientation, OverlaySizes,
+    ShortcutBindings,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -56,6 +57,24 @@ impl Default for PersistedConfig {
     }
 }
 
+impl PersistedConfig {
+    pub fn from_inner(inner: &InnerState) -> Self {
+        Self {
+            profiles: inner.profiles.clone(),
+            broadcast_keys: inner.broadcast_keys.clone(),
+            panic_hotkey: inner.panic_hotkey.clone(),
+            pvp_warning_acknowledged: inner.pvp_warning_acknowledged,
+            overlay_position: inner.overlay_position,
+            overlay_sizes: inner.overlay_sizes,
+            settings_size: inner.settings_size,
+            main_character_id: inner.main_character_id.clone(),
+            profile_order: inner.profile_order.clone(),
+            orientation: inner.orientation,
+            shortcuts: inner.shortcuts.clone(),
+        }
+    }
+}
+
 const FILE_NAME: &str = "profiles.json";
 
 pub fn config_path(app_data_dir: &Path) -> PathBuf {
@@ -76,7 +95,10 @@ pub fn load(app_data_dir: &Path) -> PersistedConfig {
             cfg
         }
         Err(err) => {
-            tracing::warn!(?err, "config: failed to parse profiles.json, using defaults");
+            tracing::warn!(
+                ?err,
+                "config: failed to parse profiles.json, using defaults"
+            );
             PersistedConfig::default()
         }
     }

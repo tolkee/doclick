@@ -1,3 +1,9 @@
+// Mutex<HashMap> locks below are held only across HashMap ops (clear, insert,
+// get, contains_key) which cannot panic, so the locks cannot be poisoned.
+// `.unwrap()` on `.lock()` is therefore infallible — module-level allow keeps
+// the call sites readable.
+#![allow(clippy::unwrap_used)]
+
 use std::collections::HashMap;
 use std::sync::Mutex;
 
@@ -8,9 +14,7 @@ use tauri_plugin_global_shortcut::{
 };
 
 use crate::commands;
-use crate::events::{
-    BroadcastStatePayload, EVT_BROADCAST_STATE, EVT_OPEN_SETTINGS,
-};
+use crate::events::{BroadcastStatePayload, EVT_BROADCAST_STATE, EVT_OPEN_SETTINGS};
 use crate::state::{AppState, BroadcastReason, ShortcutBindings};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -132,9 +136,13 @@ fn register_one(
     match parsed {
         ParsedShortcut::Keyboard(s) => {
             if kbd.contains_key(&s) {
-                tracing::warn!(accel, ?action, "duplicate keyboard shortcut, last write wins");
+                tracing::warn!(
+                    accel,
+                    ?action,
+                    "duplicate keyboard shortcut, last write wins"
+                );
             }
-            if let Err(err) = app.global_shortcut().register(s.clone()) {
+            if let Err(err) = app.global_shortcut().register(s) {
                 tracing::warn!(?err, accel, ?action, "failed to register keyboard shortcut");
                 return;
             }
@@ -177,9 +185,9 @@ pub fn dispatch(app: &AppHandle, shortcut: &Shortcut, event: ShortcutEvent) {
 /// in the foreground.
 pub fn should_run(app: &AppHandle, action: ShortcutAction) -> bool {
     match action {
-        ShortcutAction::PanicHotkey
-        | ShortcutAction::OpenSettings
-        | ShortcutAction::CloseApp => return true,
+        ShortcutAction::PanicHotkey | ShortcutAction::OpenSettings | ShortcutAction::CloseApp => {
+            return true
+        }
         _ => {}
     }
     let state = match app.try_state::<AppState>() {
@@ -336,20 +344,45 @@ fn code_from_str(s: &str) -> Option<Code> {
             let c = s.chars().next()?;
             if c.is_ascii_alphabetic() {
                 match c.to_ascii_uppercase() {
-                    'A' => Code::KeyA, 'B' => Code::KeyB, 'C' => Code::KeyC, 'D' => Code::KeyD,
-                    'E' => Code::KeyE, 'F' => Code::KeyF, 'G' => Code::KeyG, 'H' => Code::KeyH,
-                    'I' => Code::KeyI, 'J' => Code::KeyJ, 'K' => Code::KeyK, 'L' => Code::KeyL,
-                    'M' => Code::KeyM, 'N' => Code::KeyN, 'O' => Code::KeyO, 'P' => Code::KeyP,
-                    'Q' => Code::KeyQ, 'R' => Code::KeyR, 'S' => Code::KeyS, 'T' => Code::KeyT,
-                    'U' => Code::KeyU, 'V' => Code::KeyV, 'W' => Code::KeyW, 'X' => Code::KeyX,
-                    'Y' => Code::KeyY, 'Z' => Code::KeyZ,
+                    'A' => Code::KeyA,
+                    'B' => Code::KeyB,
+                    'C' => Code::KeyC,
+                    'D' => Code::KeyD,
+                    'E' => Code::KeyE,
+                    'F' => Code::KeyF,
+                    'G' => Code::KeyG,
+                    'H' => Code::KeyH,
+                    'I' => Code::KeyI,
+                    'J' => Code::KeyJ,
+                    'K' => Code::KeyK,
+                    'L' => Code::KeyL,
+                    'M' => Code::KeyM,
+                    'N' => Code::KeyN,
+                    'O' => Code::KeyO,
+                    'P' => Code::KeyP,
+                    'Q' => Code::KeyQ,
+                    'R' => Code::KeyR,
+                    'S' => Code::KeyS,
+                    'T' => Code::KeyT,
+                    'U' => Code::KeyU,
+                    'V' => Code::KeyV,
+                    'W' => Code::KeyW,
+                    'X' => Code::KeyX,
+                    'Y' => Code::KeyY,
+                    'Z' => Code::KeyZ,
                     _ => return None,
                 }
             } else if c.is_ascii_digit() {
                 match c {
-                    '0' => Code::Digit0, '1' => Code::Digit1, '2' => Code::Digit2,
-                    '3' => Code::Digit3, '4' => Code::Digit4, '5' => Code::Digit5,
-                    '6' => Code::Digit6, '7' => Code::Digit7, '8' => Code::Digit8,
+                    '0' => Code::Digit0,
+                    '1' => Code::Digit1,
+                    '2' => Code::Digit2,
+                    '3' => Code::Digit3,
+                    '4' => Code::Digit4,
+                    '5' => Code::Digit5,
+                    '6' => Code::Digit6,
+                    '7' => Code::Digit7,
+                    '8' => Code::Digit8,
                     '9' => Code::Digit9,
                     _ => return None,
                 }

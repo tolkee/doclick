@@ -1,12 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from "react";
 import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AvatarBar } from "./components/AvatarBar";
 import { BroadcastToggle } from "./components/BroadcastToggle";
 import { KebabButton } from "./components/KebabButton";
 import { PanicIndicator } from "./components/PanicIndicator";
 import { ResizeHandles } from "./components/ResizeHandles";
 import { VerticalOverlayChrome } from "./components/VerticalOverlayChrome";
-import Settings, { type SettingsTabId } from "./Settings";
 import { saveOverlayPosition } from "./ipc/commands";
 import {
   onBroadcastState,
@@ -25,6 +24,7 @@ import {
   SETTINGS_DEFAULT_SIZE,
   SETTINGS_MIN_SIZE,
 } from "./lib/overlaySize";
+import Settings, { type SettingsTabId } from "./Settings";
 import { useDoclickStore } from "./store/useDoclickStore";
 import type { Orientation } from "./types";
 
@@ -60,9 +60,7 @@ export default function App() {
         ? (saved as [number, number])
         : [SETTINGS_DEFAULT_SIZE.width, SETTINGS_DEFAULT_SIZE.height];
       await win.setResizable(true);
-      await win.setMinSize(
-        new LogicalSize(SETTINGS_MIN_SIZE.width, SETTINGS_MIN_SIZE.height),
-      );
+      await win.setMinSize(new LogicalSize(SETTINGS_MIN_SIZE.width, SETTINGS_MIN_SIZE.height));
       await win.setSize(new LogicalSize(target[0], target[1]));
       viewRef.current = "settings";
       setView("settings");
@@ -113,9 +111,7 @@ export default function App() {
         else useDoclickStore.setState({ broadcastLive: false });
       }),
       onError((p) => useDoclickStore.setState({ lastError: p.message })),
-      onFocusedWindowChanged((p) =>
-        useDoclickStore.setState({ focusedHwnd: p.focused_hwnd }),
-      ),
+      onFocusedWindowChanged((p) => useDoclickStore.setState({ focusedHwnd: p.focused_hwnd })),
       onOpenSettings(() => {
         if (viewRef.current === "overlay") enterSettings();
       }),
@@ -138,7 +134,9 @@ export default function App() {
     });
 
     return () => {
-      subs.forEach((s) => s.then((off) => off()));
+      for (const s of subs) {
+        s.then((off) => off());
+      }
       moveUnlistenP.then((off) => off());
       if (moveDebounce.current !== null) window.clearTimeout(moveDebounce.current);
     };
@@ -147,9 +145,7 @@ export default function App() {
   const orientation = useDoclickStore((s) => s.orientation);
   const overlaySizes = useDoclickStore((s) => s.overlaySizes);
   const hydrated = useDoclickStore((s) => s.hydrated);
-  const visibleCount = useDoclickStore(
-    (s) => s.windows.filter((w) => w.profile != null).length,
-  );
+  const visibleCount = useDoclickStore((s) => s.windows.filter((w) => w.profile != null).length);
 
   // Apply the overlay size when its derivation inputs change. View
   // transitions are *not* driven from here — enterSettings/exitSettings
@@ -230,6 +226,7 @@ export default function App() {
     return (
       <div className="relative flex h-screen w-screen flex-col overflow-hidden rounded-xl border border-border/50 bg-background shadow-2xl">
         <VerticalOverlayChrome />
+        {/* biome-ignore lint/a11y/noStaticElementInteractions: drag-region surface for a frameless Tauri window. The mousedown only initiates window drag — there is no UI action to gate behind a role. */}
         <div
           onMouseDown={(e) => {
             if (e.button !== 0) return;

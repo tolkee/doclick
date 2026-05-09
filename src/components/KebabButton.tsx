@@ -1,8 +1,8 @@
-import { useRef } from "react";
-import { getCurrentWindow, LogicalPosition } from "@tauri-apps/api/window";
-import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { listen } from "@tauri-apps/api/event";
+import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { getCurrentWindow, LogicalPosition } from "@tauri-apps/api/window";
 import { MoreVertical } from "lucide-react";
+import { useRef } from "react";
 import { Button } from "./ui/button";
 
 const MENU_WIDTH = 160;
