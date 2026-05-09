@@ -4,15 +4,12 @@ import { ArrowLeft, Copy, Minus, Settings as SettingsIcon, Square, X } from "luc
 
 interface TitleBarProps {
   title?: string;
-  /// When provided, render a back arrow on the left and call this handler
-  /// when clicked. The arrow replaces the leading drag-region — the rest
-  /// of the bar (around the title) is still draggable.
+  /** Renders a back arrow on the left and calls this handler when clicked. */
   onBack?: () => void;
-  /// When provided, render a gear button on the right cluster (just
-  /// before the minimize button).
+  /** Renders a gear button on the right, before minimize. */
   onOpenSettings?: () => void;
-  /// Default true. Pass `false` in overlay view: maximizing an
-  /// always-on-top transparent panel to fullscreen is a footgun.
+  /** Pass false in overlay view — maximizing an always-on-top transparent
+   * panel to fullscreen is a footgun. Defaults to true. */
   showMaximize?: boolean;
 }
 
@@ -99,7 +96,7 @@ export function TitleBar({ title, onBack, onOpenSettings, showMaximize = true }:
   );
 }
 
-function TitleBarButton({
+export function TitleBarButton({
   onClick,
   ariaLabel,
   danger,

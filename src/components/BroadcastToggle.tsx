@@ -22,6 +22,7 @@ export function BroadcastToggle() {
     <button
       onClick={toggle}
       title={tooltip}
+      data-tauri-drag-region="false"
       className={`relative flex items-center justify-center w-11 h-11 rounded-full transition-colors ${stateClasses}`}
       aria-label="Broadcast"
     >

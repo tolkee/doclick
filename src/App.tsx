@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getCurrentWindow, LogicalPosition, LogicalSize } from "@tauri-apps/api/window";
+import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 import { AvatarBar } from "./components/AvatarBar";
 import { BroadcastToggle } from "./components/BroadcastToggle";
+import { KebabButton } from "./components/KebabButton";
 import { PanicIndicator } from "./components/PanicIndicator";
 import { ResizeHandles } from "./components/ResizeHandles";
-import { TitleBar } from "./components/TitleBar";
 import { VerticalOverlayChrome } from "./components/VerticalOverlayChrome";
 import Settings, { type SettingsTabId } from "./Settings";
 import { saveOverlayPosition } from "./ipc/commands";
@@ -36,33 +36,24 @@ export default function App() {
 
   const [view, setView] = useState<View>("overlay");
   const [settingsTab, setSettingsTab] = useState<SettingsTabId>("global");
-  // Mirrored in a ref for closures (event listeners, debounced callbacks)
-  // that capture stale state. Transition handlers update it before resizing
-  // so late Tauri resize events are attributed to the destination view.
+  // Mirror in a ref so listener closures don't capture stale state. View
+  // transitions update it before resizing so late Tauri resize events get
+  // attributed to the destination view.
   const viewRef = useRef<View>("overlay");
   useEffect(() => {
     viewRef.current = view;
   }, [view]);
-  // Snapshot of the overlay's position taken when entering settings, so
-  // exiting can restore exactly where the bar sat. Size is *not*
-  // snapshotted — it's fully derived from store state by the size
-  // effect below, so settings dimensions can never bleed into the
-  // overlay (and vice versa).
-  const overlayPositionSnapshot = useRef<{ x: number; y: number } | null>(null);
 
   const enterSettings = useCallback(async (tab: SettingsTabId = "global") => {
     setSettingsTab(tab);
     if (viewRef.current === "settings") return;
     const win = getCurrentWindow();
     try {
-      const factor = await win.scaleFactor();
-      const pos = (await win.outerPosition()).toLogical(factor);
-      overlayPositionSnapshot.current = { x: pos.x, y: pos.y };
       // Apply size BEFORE the view flip so the settings UI never paints at
-      // overlay dimensions. Order matters: re-enable resize (the overlay
-      // min would clamp), then set new min, then size. Reject saved sizes
-      // below SETTINGS_MIN_SIZE — older builds occasionally persisted the
-      // overlay's dimensions as settings_size on view transitions.
+      // overlay dimensions. Order: enable resize (the overlay min would
+      // clamp), set new min, then size. Reject saved sizes below
+      // SETTINGS_MIN_SIZE — older builds occasionally persisted overlay
+      // dimensions as settings_size on view transitions.
       const saved = useDoclickStore.getState().settingsSize;
       const target: [number, number] = isValidSettingsSize(saved)
         ? (saved as [number, number])
@@ -72,8 +63,6 @@ export default function App() {
       await win.setSize(new LogicalSize(target[0], target[1]));
       viewRef.current = "settings";
       setView("settings");
-      await win.setAlwaysOnTop(false);
-      await win.setSkipTaskbar(false);
       await win.setFocus();
     } catch (err) {
       console.warn("enterSettings failed", err);
@@ -83,11 +72,10 @@ export default function App() {
   const exitSettings = useCallback(async () => {
     if (viewRef.current === "overlay") return;
     // Mark the destination view before the programmatic shrink. The settings
-    // resize listener may still be subscribed for a moment, and must not
+    // resize listener may still be subscribed for a moment and must not
     // persist the overlay's thin dimensions as settings_size.
     viewRef.current = "overlay";
     const win = getCurrentWindow();
-    const snap = overlayPositionSnapshot.current;
     const state = useDoclickStore.getState();
     const orientation = state.orientation;
     const visibleCount = state.windows.filter((w) => w.profile != null).length;
@@ -101,11 +89,6 @@ export default function App() {
       await win.setMinSize(new LogicalSize(min.width, min.height));
       await win.setSize(new LogicalSize(size.width, size.height));
       await win.setResizable(false);
-      await win.setAlwaysOnTop(true);
-      await win.setSkipTaskbar(true);
-      if (snap) {
-        await win.setPosition(new LogicalPosition(snap.x, snap.y));
-      }
     } catch (err) {
       console.warn("exitSettings failed", err);
     }
@@ -134,15 +117,12 @@ export default function App() {
       onPrefsChanged(() => hydrate()),
     ];
 
-    // Persist overlay position on move (debounced). Only while in
-    // overlay view — dragging the larger settings window must not
-    // clobber the persisted overlay_position.
+    // Overlay and settings share one Tauri window, so its position is shared
+    // between views — moves in either view persist to overlay_position.
     const win = getCurrentWindow();
     const moveUnlistenP = win.onMoved(({ payload }) => {
-      if (viewRef.current !== "overlay") return;
-      // Win32 reports `-32000` for both axes while a window is
-      // minimized — never persist that as the overlay's position, or
-      // the window will spawn offscreen on next launch.
+      // -32000 is the Win32 sentinel for a minimized window's position;
+      // never persist it or the window respawns offscreen.
       if (payload.x <= -32000 || payload.y <= -32000) return;
       if (moveDebounce.current !== null) window.clearTimeout(moveDebounce.current);
       moveDebounce.current = window.setTimeout(() => {
@@ -195,11 +175,9 @@ export default function App() {
     const win = getCurrentWindow();
     let timer: number | null = null;
     const unlistenP = win.onResized(({ payload }) => {
-      // Skip resize events that arrive after we've already left settings
-      // view (e.g. exitSettings's setSize(overlaySize) firing late while
-      // the async unlisten hasn't completed yet). Without this guard the
-      // overlay's tiny dimensions would be persisted as settings_size and
-      // applied on every subsequent open.
+      // Skip late events that arrive after exitSettings's setSize fires —
+      // without this guard the overlay's tiny dimensions get persisted as
+      // settings_size and applied on every subsequent open.
       if (viewRef.current !== "settings") return;
       if (timer !== null) window.clearTimeout(timer);
       timer = window.setTimeout(async () => {
@@ -236,8 +214,16 @@ export default function App() {
   if (orientation === "vertical") {
     return (
       <div className="relative flex h-screen w-screen flex-col overflow-hidden rounded-xl border border-border/50 bg-background shadow-2xl">
-        <VerticalOverlayChrome onOpenSettings={() => enterSettings()} />
-        <div className="relative flex flex-1 min-h-0 w-full flex-col items-stretch gap-2 px-2 py-2">
+        <VerticalOverlayChrome />
+        <div
+          onMouseDown={(e) => {
+            if (e.button !== 0) return;
+            const t = e.target as HTMLElement;
+            if (t.closest('button, [data-tauri-drag-region="false"]')) return;
+            void getCurrentWindow().startDragging();
+          }}
+          className="drag-surface relative flex flex-1 min-h-0 w-full flex-col items-stretch gap-2 px-2 py-2"
+        >
           <div className="flex-1 min-h-0 w-full">
             <AvatarBar onOpenCharacters={openCharacters} />
           </div>
@@ -254,8 +240,8 @@ export default function App() {
 
   return (
     <div className="relative flex h-screen w-screen flex-col overflow-hidden rounded-xl border border-border/50 bg-background shadow-2xl">
-      <TitleBar title="Doclick" showMaximize={false} onOpenSettings={() => enterSettings()} />
       <div
+        data-tauri-drag-region
         className="relative flex items-center gap-2 w-full px-3"
         style={{ height: HORIZONTAL_BAR_HEIGHT }}
       >
@@ -264,6 +250,8 @@ export default function App() {
         <div className="flex-1 min-w-0">
           <AvatarBar onOpenCharacters={openCharacters} />
         </div>
+        <div className="w-px h-8 bg-border/60 mx-1" />
+        <KebabButton anchor="below-right" />
       </div>
       <PanicIndicator />
       <ResizeHandles mode="overlay-horizontal" />
@@ -275,8 +263,6 @@ function savedMainAxis(
   sizes: { horizontal: [number, number] | null; vertical: [number, number] | null },
   orientation: Orientation,
 ): number | null {
-  // Horizontal mode: only width is user-resizable → tuple[0].
-  // Vertical mode:   only height is user-resizable → tuple[1].
   if (orientation === "horizontal") return sizes.horizontal?.[0] ?? null;
   return sizes.vertical?.[1] ?? null;
 }

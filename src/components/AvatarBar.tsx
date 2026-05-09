@@ -5,8 +5,6 @@ import type { WindowEntry } from "../types";
 import { CharacterChip } from "./CharacterChip";
 
 interface Props {
-  /// Open Settings → Personnages. Used by the empty-state CTA when there
-  /// are unimported Dofus windows.
   onOpenCharacters: () => void;
 }
 
@@ -15,14 +13,12 @@ export function AvatarBar({ onOpenCharacters }: Props) {
   const windows = useDoclickStore((s) => s.windows);
   const profileOrder = useDoclickStore((s) => s.profileOrder);
 
-  // Sort/filter via useMemo so the selector itself returns stable refs and
-  // doesn't trip Zustand's snapshot-equality detection (would otherwise loop).
+  // useMemo here (not in the selector) — Zustand's snapshot equality treats
+  // a fresh array as a state change and loops the component.
   const visible = useMemo(() => orderVisible(windows, profileOrder), [windows, profileOrder]);
 
-  // A "character window" is one whose title parsed into a character name
-  // (see parse_character_name in src-tauri/src/windows/enumerate.rs). The
-  // launcher and other Dofus-process windows have character_name === null
-  // and shouldn't trigger the "Aucun personnage importé" CTA.
+  // Launcher / non-character Dofus windows have character_name === null and
+  // must not trigger the "import" CTA.
   const characterWindowCount = useMemo(
     () => windows.filter((w) => w.character_name !== null).length,
     [windows],
@@ -62,6 +58,7 @@ export function AvatarBar({ onOpenCharacters }: Props) {
         <button
           type="button"
           onClick={onOpenCharacters}
+          data-tauri-drag-region="false"
           className="inline-flex h-6 items-center justify-center rounded-md bg-foreground/10 px-2 text-foreground/90 hover:bg-foreground/20"
         >
           Importer
@@ -70,10 +67,8 @@ export function AvatarBar({ onOpenCharacters }: Props) {
     );
   }
 
-  // Inner px/py keeps the focus ring (ring-2 + ring-offset-1 = 3px outset)
-  // from being clipped by the overflow scroll container at the bar edges and
-  // at the top/bottom of every chip in horizontal mode (where the bar's
-  // height equals the chip's height).
+  // px/py prevents the chip's 3px focus-ring outset from being clipped by
+  // the overflow container — bar height equals chip height in horizontal.
   const cls =
     orientation === "horizontal"
       ? "flex flex-row items-center gap-1.5 overflow-x-auto no-scrollbar px-1 py-1"
@@ -89,8 +84,6 @@ export function AvatarBar({ onOpenCharacters }: Props) {
 }
 
 function orderVisible(windows: WindowEntry[], profileOrder: string[]): WindowEntry[] {
-  // Only imported characters (i.e. those resolved to a profile) appear in the
-  // overlay.
   const filtered = windows.filter((w) => w.profile != null);
   const idx = (w: WindowEntry) => {
     const id = w.profile?.id;

@@ -3,7 +3,6 @@ import {
   HORIZONTAL_BAR_HEIGHT,
   SETTINGS_DEFAULT_SIZE,
   SETTINGS_MIN_SIZE,
-  TITLEBAR_HEIGHT,
   VERTICAL_BAR_WIDTH,
   VERTICAL_TOPBAR_HEIGHT,
   computeOverlayMinSize,
@@ -43,7 +42,7 @@ describe("computeOverlaySize", () => {
       visibleCount: 4,
       savedMainAxis: null,
     });
-    expect(size.height).toBe(TITLEBAR_HEIGHT + HORIZONTAL_BAR_HEIGHT);
+    expect(size.height).toBe(HORIZONTAL_BAR_HEIGHT);
   });
 
   it("locks the cross axis in vertical mode", () => {
@@ -82,7 +81,7 @@ describe("computeOverlaySize", () => {
     const horizontal = computeOverlaySize({
       orientation: "horizontal",
       visibleCount: 0,
-      savedMainAxis: 100,
+      savedMainAxis: 50,
     });
     const min = computeOverlayMinSize("horizontal");
     expect(horizontal.width).toBe(min.width);
@@ -90,7 +89,7 @@ describe("computeOverlaySize", () => {
     const vertical = computeOverlaySize({
       orientation: "vertical",
       visibleCount: 0,
-      savedMainAxis: 50,
+      savedMainAxis: 30,
     });
     const verticalMin = computeOverlayMinSize("vertical");
     expect(vertical.height).toBe(verticalMin.height);
@@ -100,12 +99,12 @@ describe("computeOverlaySize", () => {
 describe("computeOverlayMinSize", () => {
   it("returns the locked cross axis in horizontal mode", () => {
     const min = computeOverlayMinSize("horizontal");
-    expect(min.height).toBe(TITLEBAR_HEIGHT + HORIZONTAL_BAR_HEIGHT);
+    expect(min.height).toBe(HORIZONTAL_BAR_HEIGHT);
   });
 
   it("returns the locked cross axis in vertical mode", () => {
     const min = computeOverlayMinSize("vertical");
     expect(min.width).toBe(VERTICAL_BAR_WIDTH);
-    expect(min.height).toBeGreaterThan(VERTICAL_TOPBAR_HEIGHT);
+    expect(min.height).toBeGreaterThanOrEqual(VERTICAL_TOPBAR_HEIGHT);
   });
 });
