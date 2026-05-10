@@ -115,3 +115,33 @@ pub fn wait_until_foreground(hwnd: isize, timeout: Duration) -> bool {
 pub fn current_foreground() -> isize {
     unsafe { GetForegroundWindow().0 as isize }
 }
+
+/// Companion-app exe filenames that count as a "valid" foreground for the
+/// shortcut gate and the broadcast auto-disable watchdog. Hardcoded for
+/// now — Ganymede is the only companion the user regularly bounces between.
+/// Promote to a Settings-managed list when a second use case appears.
+const COMPANION_PROCESS_NAMES: &[&str] = &["ganymede.exe"];
+
+/// Process basename for the given HWND, or `None` if the process can't be
+/// opened.
+pub(crate) fn process_basename_of(hwnd: isize) -> Option<String> {
+    let mut pid: u32 = 0;
+    unsafe {
+        GetWindowThreadProcessId(HWND(hwnd as *mut _), Some(&mut pid));
+    }
+    if pid == 0 {
+        return None;
+    }
+    crate::windows::enumerate::process_basename(pid)
+}
+
+/// True if `hwnd` belongs to a whitelisted companion app (Ganymede).
+pub(crate) fn is_companion_window(hwnd: isize) -> bool {
+    process_basename_of(hwnd)
+        .map(|name| {
+            COMPANION_PROCESS_NAMES
+                .iter()
+                .any(|w| name.eq_ignore_ascii_case(w))
+        })
+        .unwrap_or(false)
+}
