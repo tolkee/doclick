@@ -7,7 +7,6 @@
       "include-component-in-tag": false,
       "include-v-in-tag": true,
       "changelog-path": "CHANGELOG.md",
-      "draft": true,
       "extra-files": [
         {
           "type": "generic",
