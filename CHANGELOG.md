@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.9.0](https://github.com/tolkee/doclick/compare/v0.8.0...v0.9.0) (2026-05-10)
+
+
+### Features
+
+* add /travel-from-clipboard shortcut ([2f86cc1](https://github.com/tolkee/doclick/commit/2f86cc1f4ff61951f06a09281fde7e92a81ef200))
+* widen shortcut gate for Ganymede, disable broadcast on /travel ([90ea4ae](https://github.com/tolkee/doclick/commit/90ea4aeeedf4c6e1d73f7908c4727279dd20b817))
+
+
+### Bug Fixes
+
+* **ci:** drop release-please draft mode ([aa9de78](https://github.com/tolkee/doclick/commit/aa9de787fd19e5a1c02245bc6c6653a870e05a76))
+
 ## [0.8.0](https://github.com/tolkee/doclick/compare/v0.7.0...v0.8.0) (2026-05-08)
 
 _Maintenance release — production-readiness refactor ([c6910fa](https://github.com/tolkee/doclick/commit/c6910fa7da9365011fac70127c61813d9ac6fba8)), CI audit job rework ([a893a31](https://github.com/tolkee/doclick/commit/a893a31594b154af8653b0e68d5ace202c2ee809)), README/logo doc fixes. No user-facing feature or bug-fix changes._
