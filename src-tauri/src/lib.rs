@@ -217,9 +217,13 @@ fn spawn_foreground_watchdog(app: tauri::AppHandle, state: AppState) {
             // Both Dofus windows and our own app windows (overlay, settings)
             // count as valid foreground — otherwise clicking the broadcast
             // toggle on the overlay starts the auto-disable countdown.
+            // Whitelisted companion apps (Ganymede) also count, so the user
+            // can bounce between Dofus and Ganymede without tripping the gate.
             let dofus_known = state.all_hwnds();
             let app_known = app_hwnds(&app);
-            let allowed = dofus_known.contains(&fg) || app_known.contains(&fg);
+            let allowed = dofus_known.contains(&fg)
+                || app_known.contains(&fg)
+                || windows::focus::is_companion_window(fg);
             if allowed {
                 non_dofus_streak = 0;
             } else {

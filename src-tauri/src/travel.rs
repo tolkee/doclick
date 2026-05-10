@@ -3,11 +3,12 @@
 
 use std::time::Duration;
 
-use tauri::State;
+use tauri::{AppHandle, Emitter, State};
 use windows::Win32::UI::Input::KeyboardAndMouse::{VK_CONTROL, VK_RETURN, VK_SPACE, VK_V};
 
 use crate::broadcast::dispatcher::{send_key, send_key_combo};
-use crate::state::AppState;
+use crate::events::{BroadcastStatePayload, EVT_BROADCAST_STATE};
+use crate::state::{AppState, BroadcastReason};
 use crate::windows::focus::focus_window;
 
 const FOCUS_WAIT: Duration = Duration::from_millis(120);
@@ -23,7 +24,7 @@ const CHAT_OPEN_DELAY: Duration = Duration::from_millis(80);
 /// an empty input.
 const POST_PASTE_DELAY: Duration = Duration::from_millis(30);
 
-pub fn run_travel_from_clipboard(state: State<'_, AppState>) {
+pub fn run_travel_from_clipboard(app: &AppHandle, state: State<'_, AppState>) {
     let Some(_command) = read_validated_travel_command() else {
         tracing::debug!("travel: clipboard does not contain a valid /travel command");
         return;
@@ -32,6 +33,11 @@ pub fn run_travel_from_clipboard(state: State<'_, AppState>) {
         tracing::debug!("travel: no main character set, or its window is not live");
         return;
     };
+
+    // Disable broadcast before sending keys, otherwise our Space/Enter would
+    // be replayed to followers and they'd all open chat. The user re-enables
+    // manually after the trip — auto-restore would surprise the user mid-action.
+    disable_broadcast_if_on(app, &state);
 
     if !focus_window(hwnd, FOCUS_WAIT) {
         tracing::warn!(
@@ -55,6 +61,24 @@ pub fn run_travel_from_clipboard(state: State<'_, AppState>) {
 
     if !send_key(VK_RETURN.0 as u32) {
         tracing::warn!("travel: SendInput rejected Enter");
+    }
+}
+
+fn disable_broadcast_if_on(app: &AppHandle, state: &State<'_, AppState>) {
+    let was_on = {
+        let mut inner = state.write();
+        let prev = inner.broadcast_enabled;
+        inner.broadcast_enabled = false;
+        prev
+    };
+    if was_on {
+        let _ = app.emit(
+            EVT_BROADCAST_STATE,
+            BroadcastStatePayload {
+                enabled: false,
+                reason: BroadcastReason::User,
+            },
+        );
     }
 }
 

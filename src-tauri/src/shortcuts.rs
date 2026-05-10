@@ -202,7 +202,10 @@ pub fn should_run(app: &AppHandle, action: ShortcutAction) -> bool {
     if state.all_hwnds().contains(&fg) {
         return true;
     }
-    crate::app_hwnds(app).contains(&fg)
+    if crate::app_hwnds(app).contains(&fg) {
+        return true;
+    }
+    crate::windows::focus::is_companion_window(fg)
 }
 
 /// Execute the side-effect for `action`. Used by both the keyboard plugin
@@ -258,7 +261,7 @@ pub fn run_action(app: &AppHandle, action: ShortcutAction) {
             let _ = commands::focus_main_character(state);
         }
         ShortcutAction::SendTravelCommand => {
-            crate::travel::run_travel_from_clipboard(state);
+            crate::travel::run_travel_from_clipboard(&app_handle, state);
         }
     }
 }

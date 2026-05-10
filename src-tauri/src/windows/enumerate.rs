@@ -148,7 +148,7 @@ fn read_class_name(hwnd: HWND) -> String {
     }
 }
 
-fn process_basename(pid: u32) -> Option<String> {
+pub(crate) fn process_basename(pid: u32) -> Option<String> {
     unsafe {
         let handle = OpenProcess(
             PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ,
