@@ -10,6 +10,7 @@ mod events;
 mod hooks;
 mod shortcuts;
 mod state;
+mod travel;
 mod windows;
 
 use crate::events::{BroadcastStatePayload, FocusedWindowChangedPayload, WindowsChangedPayload};

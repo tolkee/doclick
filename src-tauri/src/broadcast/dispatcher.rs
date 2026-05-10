@@ -311,11 +311,33 @@ fn mouse_input(
     }
 }
 
-fn send_key(vk: u32) -> bool {
+pub(crate) fn send_key(vk: u32) -> bool {
     let scan = unsafe { MapVirtualKeyW(vk, MAPVK_VK_TO_VSC) } as u16;
     let inputs = [
         keyboard_input(vk as u16, scan, KEYEVENTF_SCANCODE),
         keyboard_input(vk as u16, scan, KEYEVENTF_SCANCODE | KEYEVENTF_KEYUP),
+    ];
+    unsafe { SendInput(&inputs, std::mem::size_of::<INPUT>() as i32) == inputs.len() as u32 }
+}
+
+/// Atomic modifier+key combo as a single SendInput batch
+/// (modifier-down → key-down → key-up → modifier-up).
+pub(crate) fn send_key_combo(modifier_vk: u32, key_vk: u32) -> bool {
+    let mod_scan = unsafe { MapVirtualKeyW(modifier_vk, MAPVK_VK_TO_VSC) } as u16;
+    let key_scan = unsafe { MapVirtualKeyW(key_vk, MAPVK_VK_TO_VSC) } as u16;
+    let inputs = [
+        keyboard_input(modifier_vk as u16, mod_scan, KEYEVENTF_SCANCODE),
+        keyboard_input(key_vk as u16, key_scan, KEYEVENTF_SCANCODE),
+        keyboard_input(
+            key_vk as u16,
+            key_scan,
+            KEYEVENTF_SCANCODE | KEYEVENTF_KEYUP,
+        ),
+        keyboard_input(
+            modifier_vk as u16,
+            mod_scan,
+            KEYEVENTF_SCANCODE | KEYEVENTF_KEYUP,
+        ),
     ];
     unsafe { SendInput(&inputs, std::mem::size_of::<INPUT>() as i32) == inputs.len() as u32 }
 }

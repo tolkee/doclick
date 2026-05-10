@@ -309,24 +309,7 @@ pub fn focus_prev_character(state: State<'_, AppState>) -> Result<(), CmdError> 
 
 #[tauri::command]
 pub fn focus_main_character(state: State<'_, AppState>) -> Result<(), CmdError> {
-    let target_hwnd = {
-        let inner = state.read();
-        let main_id = inner.main_character_id.clone();
-        match main_id {
-            Some(id) => {
-                let title_match = inner.profiles.iter().find(|p| p.id == id).cloned();
-                title_match.and_then(|p| {
-                    inner
-                        .live_windows
-                        .iter()
-                        .find(|w| p.matches_window(&w.title, w.pid))
-                        .map(|w| w.hwnd)
-                })
-            }
-            None => None,
-        }
-    };
-    if let Some(h) = target_hwnd {
+    if let Some(h) = state.main_character_hwnd() {
         let _ = focus_window(h, std::time::Duration::from_millis(120));
     }
     Ok(())
