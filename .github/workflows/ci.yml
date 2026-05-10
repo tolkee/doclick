@@ -49,10 +49,19 @@ jobs:
         run: cargo clippy --all-targets -- -D warnings
 
   audit:
+    # Direct `cargo audit` instead of rustsec/audit-check@v2:
+    #   1. The action needs `checks: write` to post check runs and isn't
+    #      reachable from PR events with the default token.
+    #   2. The action fails on advisory *warnings* (unmaintained / unsound),
+    #      which fires for transitive deps we don't control. We want to
+    #      block only on real vulnerabilities; unmaintained crates are
+    #      surfaced in the log without failing the build.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: rustsec/audit-check@v2.0.0
+      - uses: taiki-e/install-action@v2
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          working-directory: src-tauri
+          tool: cargo-audit
+      - name: cargo audit
+        working-directory: src-tauri
+        run: cargo audit
