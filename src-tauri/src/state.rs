@@ -111,6 +111,9 @@ pub struct ShortcutBindings {
     pub focus_next: Option<String>,
     pub focus_prev: Option<String>,
     pub focus_main: Option<String>,
+    /// Reads `/travel X,Y` from the clipboard, focuses the main character's
+    /// window, and submits the command via Space → Ctrl+V → Enter.
+    pub send_travel_command: Option<String>,
 }
 
 impl ShortcutBindings {
@@ -238,6 +241,20 @@ impl AppState {
             })
             .map(|w| w.hwnd)
             .collect()
+    }
+
+    /// HWND of the live window matching `main_character_id`, if any.
+    /// Returns `None` when no main is set, the profile is gone, or no live
+    /// window currently matches it.
+    pub fn main_character_hwnd(&self) -> Option<isize> {
+        let inner = self.0.read();
+        let id = inner.main_character_id.as_ref()?;
+        let profile = inner.profiles.iter().find(|p| &p.id == id)?;
+        inner
+            .live_windows
+            .iter()
+            .find(|w| profile.matches_window(&w.title, w.pid))
+            .map(|w| w.hwnd)
     }
 
     /// All Dofus HWNDs we know about that are linked to an imported profile.

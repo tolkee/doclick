@@ -35,6 +35,7 @@ export interface ShortcutBindings {
   focus_next: string | null;
   focus_prev: string | null;
   focus_main: string | null;
+  send_travel_command: string | null;
 }
 
 export const EMPTY_SHORTCUT_BINDINGS: ShortcutBindings = {
@@ -45,6 +46,7 @@ export const EMPTY_SHORTCUT_BINDINGS: ShortcutBindings = {
   focus_next: null,
   focus_prev: null,
   focus_main: null,
+  send_travel_command: null,
 };
 
 export interface OverlaySizes {

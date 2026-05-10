@@ -6,6 +6,7 @@ const GLOBAL_ROWS: { key: keyof Omit<ShortcutBindings, "focus_char">; label: str
   { key: "toggle_broadcast", label: "Activer/désactiver le broadcast" },
   { key: "open_settings", label: "Ouvrir les paramètres" },
   { key: "close_app", label: "Fermer l'application" },
+  { key: "send_travel_command", label: "Envoyer /travel du presse-papiers" },
 ];
 
 const NAV_ROWS: { key: keyof Omit<ShortcutBindings, "focus_char">; label: string }[] = [

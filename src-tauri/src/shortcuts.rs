@@ -27,6 +27,7 @@ pub enum ShortcutAction {
     FocusNext,
     FocusPrev,
     FocusMain,
+    SendTravelCommand,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -113,6 +114,9 @@ fn register_bindings(
     }
     if let Some(a) = b.focus_main.as_deref() {
         register_one(app, a, ShortcutAction::FocusMain, kbd, mouse);
+    }
+    if let Some(a) = b.send_travel_command.as_deref() {
+        register_one(app, a, ShortcutAction::SendTravelCommand, kbd, mouse);
     }
 }
 
@@ -252,6 +256,9 @@ pub fn run_action(app: &AppHandle, action: ShortcutAction) {
         }
         ShortcutAction::FocusMain => {
             let _ = commands::focus_main_character(state);
+        }
+        ShortcutAction::SendTravelCommand => {
+            crate::travel::run_travel_from_clipboard(state);
         }
     }
 }
