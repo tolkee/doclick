@@ -145,8 +145,18 @@ pub fn run() {
 }
 
 fn spawn_window_watcher(app: tauri::AppHandle, state: AppState) {
+    // Synchronous initial enumeration so live_windows is populated by the
+    // time setup() returns. Otherwise the webview's first hydrate() can
+    // race the async watcher's first tick and snapshot an empty list,
+    // leaving pre-existing Dofus windows invisible until an HWND-level
+    // change forces the next delta-emit.
+    let initial = windows::enumerate::enumerate_dofus_windows();
+    let initial_signature: Vec<(isize, String)> =
+        initial.iter().map(|w| (w.hwnd, w.title.clone())).collect();
+    state.write().live_windows = initial;
+
     tauri::async_runtime::spawn(async move {
-        let mut last_signature: Vec<(isize, String)> = Vec::new();
+        let mut last_signature = initial_signature;
         let mut interval = tokio::time::interval(Duration::from_millis(1500));
         loop {
             interval.tick().await;
