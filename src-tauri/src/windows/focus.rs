@@ -120,7 +120,7 @@ pub fn current_foreground() -> isize {
 /// shortcut gate and the broadcast auto-disable watchdog. Hardcoded for
 /// now — Ganymede is the only companion the user regularly bounces between.
 /// Promote to a Settings-managed list when a second use case appears.
-const COMPANION_PROCESS_NAMES: &[&str] = &["ganymede.exe"];
+pub(crate) const COMPANION_PROCESS_NAMES: &[&str] = &["ganymede.exe"];
 
 /// Process basename for the given HWND, or `None` if the process can't be
 /// opened.

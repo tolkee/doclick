@@ -18,7 +18,7 @@ use crate::state::LiveWindow;
 /// `Dofus.exe` is the most likely target for the Unity client. We list a few
 /// fallbacks observed in launcher setups; the live process name MUST be
 /// verified against an actual Dofus 3 install with Process Explorer.
-const DOFUS_PROCESS_NAMES: &[&str] = &["Dofus.exe", "DofusInvoker.exe"];
+pub(crate) const DOFUS_PROCESS_NAMES: &[&str] = &["Dofus.exe", "DofusInvoker.exe"];
 
 /// Enumerate every visible top-level window owned by a Dofus process.
 pub fn enumerate_dofus_windows() -> Vec<LiveWindow> {
