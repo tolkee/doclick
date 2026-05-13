@@ -3,7 +3,7 @@ import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Minus, Settings as SettingsIcon, X } from "lucide-react";
 import { useCallback, useEffect } from "react";
-import { EVT_OPEN_SETTINGS } from "./ipc/events";
+import { openSettings } from "./ipc/commands";
 
 /// Standalone Tauri window content for the kebab menu. Rendered in the
 /// dedicated "menu" window (defined in tauri.conf.json), shown by
@@ -31,7 +31,7 @@ export default function Menu() {
   }, [hide]);
 
   const onSettings = async () => {
-    await emit(EVT_OPEN_SETTINGS);
+    await openSettings();
     await hide();
   };
 

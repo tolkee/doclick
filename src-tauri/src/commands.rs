@@ -10,9 +10,9 @@ use windows::Win32::UI::WindowsAndMessaging::{IsIconic, ShowWindow, SW_RESTORE};
 
 use crate::config::{self, PersistedConfig};
 use crate::events::{
-    BroadcastStatePayload, UpdateProgressPayload, UpdateState, UpdateStatePayload,
-    WindowsChangedPayload, EVT_BROADCAST_STATE, EVT_PREFS_CHANGED, EVT_UPDATE_PROGRESS,
-    EVT_UPDATE_STATE, EVT_WINDOWS_CHANGED,
+    BroadcastStatePayload, OpenSettingsPayload, UpdateProgressPayload, UpdateState,
+    UpdateStatePayload, WindowsChangedPayload, EVT_BROADCAST_STATE, EVT_OPEN_SETTINGS,
+    EVT_PREFS_CHANGED, EVT_UPDATE_PROGRESS, EVT_UPDATE_STATE, EVT_WINDOWS_CHANGED,
 };
 use crate::state::{
     AppState, BroadcastReason, CharacterProfile, Orientation, ShortcutBindings, StateSnapshot,
@@ -221,6 +221,25 @@ pub fn save_settings_size(
 ) -> Result<(), CmdError> {
     state.write().settings_size = Some((width, height));
     persist(&app, &state)?;
+    Ok(())
+}
+
+/// Show, center, and focus the dedicated settings window, then announce
+/// the requested tab. Re-centering on every open is intentional — the
+/// settings window position is not persisted (only its size is).
+pub fn show_settings_window(app: &AppHandle, tab: Option<String>) {
+    if let Some(win) = app.get_webview_window("settings") {
+        let _ = win.unminimize();
+        let _ = win.center();
+        let _ = win.show();
+        let _ = win.set_focus();
+    }
+    let _ = app.emit_to("settings", EVT_OPEN_SETTINGS, OpenSettingsPayload { tab });
+}
+
+#[tauri::command]
+pub fn open_settings(app: AppHandle, tab: Option<String>) -> Result<(), CmdError> {
+    show_settings_window(&app, tab);
     Ok(())
 }
 

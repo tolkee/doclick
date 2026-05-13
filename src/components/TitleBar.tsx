@@ -1,13 +1,9 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { ArrowLeft, Copy, Minus, Settings as SettingsIcon, Square, X } from "lucide-react";
+import { Copy, Minus, Settings as SettingsIcon, Square, X } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 
 interface TitleBarProps {
   title?: string;
-  /// When provided, render a back arrow on the left and call this handler
-  /// when clicked. The arrow replaces the leading drag-region — the rest
-  /// of the bar (around the title) is still draggable.
-  onBack?: () => void;
   /// When provided, render a gear button on the right cluster (just
   /// before the minimize button).
   onOpenSettings?: () => void;
@@ -16,7 +12,7 @@ interface TitleBarProps {
   showMaximize?: boolean;
 }
 
-export function TitleBar({ title, onBack, onOpenSettings, showMaximize = true }: TitleBarProps) {
+export function TitleBar({ title, onOpenSettings, showMaximize = true }: TitleBarProps) {
   const win = getCurrentWindow();
   const [maximized, setMaximized] = useState(false);
 
@@ -43,18 +39,6 @@ export function TitleBar({ title, onBack, onOpenSettings, showMaximize = true }:
       className="flex h-9 shrink-0 items-center justify-between bg-background/70 backdrop-blur-md"
     >
       <div className="flex items-center gap-2 px-3">
-        {onBack && (
-          <button
-            type="button"
-            data-tauri-drag-region="false"
-            onClick={onBack}
-            aria-label="Retour"
-            title="Retour"
-            className="flex h-6 w-6 items-center justify-center rounded-md text-foreground/80 hover:bg-foreground/10"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2} />
-          </button>
-        )}
         <img
           src="/logo.png"
           alt=""
