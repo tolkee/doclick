@@ -30,6 +30,7 @@ export interface ShortcutBindings {
   toggle_broadcast: string | null;
   open_settings: string | null;
   close_app: string | null;
+  close_all: string | null;
   /// 8 slots; element N maps to "switch to char N+1".
   focus_char: (string | null)[];
   focus_next: string | null;
@@ -42,6 +43,7 @@ export const EMPTY_SHORTCUT_BINDINGS: ShortcutBindings = {
   toggle_broadcast: null,
   open_settings: null,
   close_app: null,
+  close_all: null,
   focus_char: [null, null, null, null, null, null, null, null],
   focus_next: null,
   focus_prev: null,

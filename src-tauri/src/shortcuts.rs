@@ -23,6 +23,7 @@ pub enum ShortcutAction {
     ToggleBroadcast,
     OpenSettings,
     CloseApp,
+    CloseAll,
     FocusChar(usize),
     FocusNext,
     FocusPrev,
@@ -100,6 +101,9 @@ fn register_bindings(
     }
     if let Some(a) = b.close_app.as_deref() {
         register_one(app, a, ShortcutAction::CloseApp, kbd, mouse);
+    }
+    if let Some(a) = b.close_all.as_deref() {
+        register_one(app, a, ShortcutAction::CloseAll, kbd, mouse);
     }
     for (i, slot) in b.focus_char.iter().enumerate() {
         if let Some(a) = slot.as_deref() {
@@ -189,9 +193,10 @@ pub fn dispatch(app: &AppHandle, shortcut: &Shortcut, event: ShortcutEvent) {
 /// in the foreground.
 pub fn should_run(app: &AppHandle, action: ShortcutAction) -> bool {
     match action {
-        ShortcutAction::PanicHotkey | ShortcutAction::OpenSettings | ShortcutAction::CloseApp => {
-            return true
-        }
+        ShortcutAction::PanicHotkey
+        | ShortcutAction::OpenSettings
+        | ShortcutAction::CloseApp
+        | ShortcutAction::CloseAll => return true,
         _ => {}
     }
     let state = match app.try_state::<AppState>() {
@@ -245,6 +250,11 @@ pub fn run_action(app: &AppHandle, action: ShortcutAction) {
             let _ = app_handle.emit(EVT_OPEN_SETTINGS, ());
         }
         ShortcutAction::CloseApp => {
+            let _ = commands::persist(&app_handle, state.inner());
+            app_handle.exit(0);
+        }
+        ShortcutAction::CloseAll => {
+            crate::windows::close::close_dofus_and_companion_windows();
             let _ = commands::persist(&app_handle, state.inner());
             app_handle.exit(0);
         }

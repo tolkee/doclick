@@ -106,6 +106,9 @@ pub struct ShortcutBindings {
     pub toggle_broadcast: Option<String>,
     pub open_settings: Option<String>,
     pub close_app: Option<String>,
+    /// Posts WM_CLOSE to every running Dofus / Ganymede window, then exits
+    /// Doclick. Escape-hatch: fires regardless of foreground window.
+    pub close_all: Option<String>,
     /// 1-based slots for "switch to char N". Index 0 = char 1.
     pub focus_char: Vec<Option<String>>,
     pub focus_next: Option<String>,
