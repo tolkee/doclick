@@ -76,7 +76,7 @@
   "plugins": {
     "updater": {
       "endpoints": ["https://github.com/tolkee/doclick/releases/latest/download/latest.json"],
-      "pubkey": "",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEM3MTExQTBEOTEwRDI1OTkKUldTWkpRMlJEUm9SeC9Ub1A1WWdOdWpoNnNpcjRnSFVWT3lham1tbWlVTmtyZmUrZE51cDhvU0wK",
       "windows": {
         "installMode": "passive"
       }
