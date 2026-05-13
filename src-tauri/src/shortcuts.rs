@@ -14,7 +14,7 @@ use tauri_plugin_global_shortcut::{
 };
 
 use crate::commands;
-use crate::events::{BroadcastStatePayload, EVT_BROADCAST_STATE, EVT_OPEN_SETTINGS};
+use crate::events::{BroadcastStatePayload, EVT_BROADCAST_STATE};
 use crate::state::{AppState, BroadcastReason, ShortcutBindings};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -247,7 +247,7 @@ pub fn run_action(app: &AppHandle, action: ShortcutAction) {
             );
         }
         ShortcutAction::OpenSettings => {
-            let _ = app_handle.emit(EVT_OPEN_SETTINGS, ());
+            commands::show_settings_window(&app_handle, None);
         }
         ShortcutAction::CloseApp => {
             let _ = commands::persist(&app_handle, state.inner());

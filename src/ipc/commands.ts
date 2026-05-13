@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type {
   CharacterProfile,
   Orientation,
+  SettingsTabId,
   ShortcutBindings,
   StateSnapshot,
   WindowEntry,
@@ -38,6 +39,9 @@ export const saveOverlaySize = (orientation: Orientation, width: number, height:
 
 export const saveSettingsSize = (width: number, height: number) =>
   invoke<void>("save_settings_size", { width, height });
+
+export const openSettings = (tab?: SettingsTabId) =>
+  invoke<void>("open_settings", { tab: tab ?? null });
 
 export const setMainCharacter = (id: string | null) => invoke<void>("set_main_character", { id });
 

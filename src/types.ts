@@ -2,6 +2,8 @@ export type Role = "follower" | "ignored";
 
 export type Orientation = "horizontal" | "vertical";
 
+export type SettingsTabId = "global" | "characters" | "shortcuts" | "about";
+
 export type MatchStrategy =
   | { kind: "WindowTitleContains"; value: string }
   | { kind: "Pid"; value: number };
