@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.10.0](https://github.com/tolkee/doclick/compare/v0.9.1...v0.10.0) (2026-05-13)
+
+
+### Features
+
+* add in-app updater with check + install button ([aca7fc2](https://github.com/tolkee/doclick/commit/aca7fc23050ae2e6ac02cfd8bb06667d0e4d2fbd))
+* pin updater public key ([f932544](https://github.com/tolkee/doclick/commit/f9325449d4871332ff57283e63171ea3db869477))
+
 ## [0.9.1](https://github.com/tolkee/doclick/compare/v0.9.0...v0.9.1) (2026-05-13)
 
 
