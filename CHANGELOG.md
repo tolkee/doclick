@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.1](https://github.com/tolkee/doclick/compare/v0.9.0...v0.9.1) (2026-05-13)
+
+
+### Bug Fixes
+
+* detect Dofus windows opened before Doclick starts ([3ef0516](https://github.com/tolkee/doclick/commit/3ef05168505405955c32fc099cda5dc47fc8f69f))
+
 ## [0.9.0](https://github.com/tolkee/doclick/compare/v0.8.0...v0.9.0) (2026-05-10)
 
 
