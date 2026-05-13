@@ -224,13 +224,26 @@ pub fn save_settings_size(
     Ok(())
 }
 
-/// Show, center, and focus the dedicated settings window, then announce
-/// the requested tab. Re-centering on every open is intentional — the
-/// settings window position is not persisted (only its size is).
+#[tauri::command]
+pub fn save_settings_position(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    x: i32,
+    y: i32,
+) -> Result<(), CmdError> {
+    state.write().settings_position = Some((x, y));
+    persist(&app, &state)?;
+    Ok(())
+}
+
+/// Show and focus the dedicated settings window, then announce the
+/// requested tab. Position and size are intentionally NOT touched here:
+/// the first show paints where setup() placed the window (restored
+/// position, or conf-centered if no position is persisted), and Tauri
+/// preserves the last position across hide/show cycles.
 pub fn show_settings_window(app: &AppHandle, tab: Option<String>) {
     if let Some(win) = app.get_webview_window("settings") {
         let _ = win.unminimize();
-        let _ = win.center();
         let _ = win.show();
         let _ = win.set_focus();
     }

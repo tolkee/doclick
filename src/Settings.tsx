@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { ResizeHandles } from "./components/ResizeHandles";
 import { TitleBar } from "./components/TitleBar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs";
+import { saveSettingsPosition } from "./ipc/commands";
 import { onOpenSettings } from "./ipc/events";
 import { isValidSettingsSize } from "./lib/overlaySize";
 import { AboutTab } from "./Settings/AboutTab";
@@ -60,6 +61,25 @@ export default function Settings() {
           await useDoclickStore.getState().saveSettingsSize(w, h);
         } catch {}
       }, 250);
+    });
+    return () => {
+      offP.then((off) => off()).catch(() => {});
+      if (timer !== null) window.clearTimeout(timer);
+    };
+  }, []);
+
+  // Persist user-moved window position (debounced, ignoring the Win32
+  // minimized sentinel so a stray -32000 doesn't spawn the window
+  // offscreen on next launch).
+  useEffect(() => {
+    const win = getCurrentWindow();
+    let timer: number | null = null;
+    const offP = win.onMoved(({ payload }) => {
+      if (payload.x <= -32000 || payload.y <= -32000) return;
+      if (timer !== null) window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        saveSettingsPosition(payload.x, payload.y).catch(() => {});
+      }, 400);
     });
     return () => {
       offP.then((off) => off()).catch(() => {});
