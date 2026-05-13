@@ -1,14 +1,52 @@
+import { useMemo } from "react";
 import pkg from "../../package.json";
+import { Button } from "../components/ui/button";
+import { useDoclickStore } from "../store/useDoclickStore";
 
 const REPO_URL = "https://github.com/tolkee/doclick";
 const AUTHOR_URL = "https://github.com/tolkee";
 
 export function AboutTab() {
+  const updateState = useDoclickStore((s) => s.updateState);
+  const availableVersion = useDoclickStore((s) => s.updateAvailableVersion);
+  const notes = useDoclickStore((s) => s.updateNotes);
+  const progress = useDoclickStore((s) => s.updateProgress);
+  const updateError = useDoclickStore((s) => s.updateError);
+  const checkForUpdate = useDoclickStore((s) => s.checkForUpdate);
+  const installUpdate = useDoclickStore((s) => s.installUpdate);
+
+  const checking = updateState === "checking";
+  const downloading = updateState === "downloading";
+  const installing = updateState === "installing";
+  const busy = checking || downloading || installing;
+
+  const checkLabel = useMemo(() => {
+    if (checking) return "Vérification…";
+    if (updateState === "no-update") return "À jour";
+    return "Vérifier les mises à jour";
+  }, [checking, updateState]);
+
+  const progressPct = useMemo(() => {
+    if (!progress?.total) return null;
+    return Math.min(100, Math.round((progress.downloaded / progress.total) * 100));
+  }, [progress]);
+
   return (
     <div className="space-y-6 max-w-xl text-sm">
-      <dl className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-1">
+      <dl className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-1 items-center">
         <dt className="text-muted-foreground">doclick</dt>
-        <dd>{pkg.version}</dd>
+        <dd className="flex items-center gap-3">
+          <span>{pkg.version}</span>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={busy}
+            onClick={() => checkForUpdate()}
+          >
+            {checkLabel}
+          </Button>
+        </dd>
 
         <dt className="text-muted-foreground">GitHub</dt>
         <dd>
@@ -23,6 +61,52 @@ export function AboutTab() {
           </a>
         </dd>
       </dl>
+
+      {updateState === "available" && availableVersion && (
+        <div className="rounded-md border border-emerald-500/40 bg-emerald-500/10 p-4 space-y-3">
+          <p className="font-medium text-emerald-200">
+            Une nouvelle version est disponible (v{availableVersion}).
+          </p>
+          {notes && (
+            <details className="text-emerald-100/90">
+              <summary className="cursor-pointer select-none text-xs text-emerald-200/80">
+                Notes de version
+              </summary>
+              <pre className="mt-2 whitespace-pre-wrap text-xs leading-relaxed">{notes}</pre>
+            </details>
+          )}
+          <Button type="button" variant="default" size="sm" onClick={() => installUpdate()}>
+            Mettre à jour maintenant
+          </Button>
+        </div>
+      )}
+
+      {downloading && (
+        <div className="rounded-md border border-sky-500/40 bg-sky-500/10 p-4 space-y-2">
+          <p className="font-medium text-sky-200">Téléchargement de la mise à jour…</p>
+          <div className="h-1.5 w-full overflow-hidden rounded bg-sky-500/20">
+            <div
+              className="h-full bg-sky-400 transition-[width] duration-200"
+              style={{ width: progressPct != null ? `${progressPct}%` : "33%" }}
+            />
+          </div>
+        </div>
+      )}
+
+      {installing && (
+        <div className="rounded-md border border-sky-500/40 bg-sky-500/10 p-4">
+          <p className="font-medium text-sky-200">
+            Installation en cours… Doclick redémarrera automatiquement.
+          </p>
+        </div>
+      )}
+
+      {updateState === "error" && updateError && (
+        <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-4 space-y-2">
+          <p className="font-medium text-amber-200">Mise à jour indisponible</p>
+          <p className="text-amber-100/90 text-xs">{humanizeUpdateError(updateError)}</p>
+        </div>
+      )}
 
       <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-4 space-y-2">
         <p className="font-medium text-amber-200">Avertissement</p>
@@ -49,6 +133,17 @@ export function AboutTab() {
       </p>
     </div>
   );
+}
+
+function humanizeUpdateError(raw: string): string {
+  const lower = raw.toLowerCase();
+  if (lower.includes("network") || lower.includes("dns") || lower.includes("connect")) {
+    return "Impossible de joindre le serveur de mises à jour. Vérifiez votre connexion.";
+  }
+  if (lower.includes("signature")) {
+    return "Signature de mise à jour invalide. Réessayez plus tard.";
+  }
+  return "Réessayez plus tard.";
 }
 
 function GithubIcon({ className = "" }: { className?: string }) {

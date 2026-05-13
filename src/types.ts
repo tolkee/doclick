@@ -92,3 +92,24 @@ export interface ErrorPayload {
   message: string;
   context: string | null;
 }
+
+export type UpdateState =
+  | "idle"
+  | "checking"
+  | "available"
+  | "no-update"
+  | "downloading"
+  | "installing"
+  | "error";
+
+export interface UpdateStatePayload {
+  state: UpdateState;
+  version: string | null;
+  notes: string | null;
+  error: string | null;
+}
+
+export interface UpdateProgressPayload {
+  downloaded: number;
+  total: number | null;
+}

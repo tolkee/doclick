@@ -3,6 +3,7 @@ import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { getCurrentWindow, LogicalPosition } from "@tauri-apps/api/window";
 import { MoreVertical } from "lucide-react";
 import { useRef } from "react";
+import { useDoclickStore } from "../store/useDoclickStore";
 import { Button } from "./ui/button";
 
 const MENU_WIDTH = 160;
@@ -43,6 +44,12 @@ export function KebabButton({ anchor, ariaLabel = "Menu" }: Props) {
   // whether this click is "open" or "close". If the menu was visible
   // at mousedown, the focus-loss path already hides it — we just no-op.
   const wasVisibleAtMousedown = useRef(false);
+  const updateAvailable = useDoclickStore(
+    (s) =>
+      s.updateState === "available" ||
+      s.updateState === "downloading" ||
+      s.updateState === "installing",
+  );
 
   const open = async () => {
     if (wasVisibleAtMousedown.current) return;
@@ -87,8 +94,15 @@ export function KebabButton({ anchor, ariaLabel = "Menu" }: Props) {
         wasVisibleAtMousedown.current = menuVisible;
       }}
       onClick={open}
+      className="relative"
     >
       <MoreVertical strokeWidth={2} />
+      {updateAvailable && (
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-emerald-400 ring-1 ring-background"
+        />
+      )}
     </Button>
   );
 }

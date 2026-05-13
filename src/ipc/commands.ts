@@ -57,3 +57,7 @@ export const focusNextCharacter = () => invoke<void>("focus_next_character");
 export const focusPrevCharacter = () => invoke<void>("focus_prev_character");
 
 export const focusMainCharacter = () => invoke<void>("focus_main_character");
+
+export const checkForUpdate = () => invoke<void>("check_for_update");
+
+export const installUpdateAndRelaunch = () => invoke<void>("install_update_and_relaunch");

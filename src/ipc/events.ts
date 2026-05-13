@@ -4,6 +4,8 @@ import type {
   BroadcastTickPayload,
   ErrorPayload,
   FocusedWindowChangedPayload,
+  UpdateProgressPayload,
+  UpdateStatePayload,
   WindowsChangedPayload,
 } from "../types";
 
@@ -14,6 +16,8 @@ export const EVT_ERROR = "error";
 export const EVT_OPEN_SETTINGS = "open-settings";
 export const EVT_PREFS_CHANGED = "prefs-changed";
 export const EVT_FOCUSED_WINDOW_CHANGED = "focused-window-changed";
+export const EVT_UPDATE_STATE = "update-state-changed";
+export const EVT_UPDATE_PROGRESS = "update-progress";
 
 export const onWindowsChanged = (cb: (p: WindowsChangedPayload) => void): Promise<UnlistenFn> =>
   listen<WindowsChangedPayload>(EVT_WINDOWS_CHANGED, (e) => cb(e.payload));
@@ -37,3 +41,9 @@ export const onOpenSettings = (cb: () => void): Promise<UnlistenFn> =>
 
 export const onPrefsChanged = (cb: () => void): Promise<UnlistenFn> =>
   listen<void>(EVT_PREFS_CHANGED, () => cb());
+
+export const onUpdateState = (cb: (p: UpdateStatePayload) => void): Promise<UnlistenFn> =>
+  listen<UpdateStatePayload>(EVT_UPDATE_STATE, (e) => cb(e.payload));
+
+export const onUpdateProgress = (cb: (p: UpdateProgressPayload) => void): Promise<UnlistenFn> =>
+  listen<UpdateProgressPayload>(EVT_UPDATE_PROGRESS, (e) => cb(e.payload));
