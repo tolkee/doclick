@@ -7,6 +7,8 @@ import {
   type Orientation,
   type OverlaySizes,
   type ShortcutBindings,
+  type UpdateProgressPayload,
+  type UpdateState,
   type WindowEntry,
 } from "../types";
 
@@ -32,12 +34,19 @@ interface DoclickState {
   /// store holds defaults that would otherwise clobber the size that
   /// Rust restored on app startup.
   hydrated: boolean;
+  updateState: UpdateState;
+  updateAvailableVersion: string | null;
+  updateNotes: string | null;
+  updateProgress: UpdateProgressPayload | null;
+  updateError: string | null;
 
   hydrate: () => Promise<void>;
   setWindows: (w: WindowEntry[]) => void;
   setBroadcast: (enabled: boolean, reason: BroadcastReason | null) => void;
   setBroadcastLive: (live: boolean) => void;
   setError: (msg: string | null) => void;
+  checkForUpdate: () => Promise<void>;
+  installUpdate: () => Promise<void>;
 
   toggleBroadcast: () => Promise<void>;
   upsertProfile: (p: CharacterProfile) => Promise<void>;
@@ -72,6 +81,11 @@ export const useDoclickStore = create<DoclickState>((set, get) => ({
   focusedHwnd: null,
   lastError: null,
   hydrated: false,
+  updateState: "idle",
+  updateAvailableVersion: null,
+  updateNotes: null,
+  updateProgress: null,
+  updateError: null,
 
   hydrate: async () => {
     const snap = await cmd.getStateSnapshot();
@@ -162,6 +176,20 @@ export const useDoclickStore = create<DoclickState>((set, get) => ({
   setBroadcastKeys: async (keys) => {
     await cmd.setBroadcastKeys(keys);
     set({ broadcastKeys: keys });
+  },
+  checkForUpdate: async () => {
+    try {
+      await cmd.checkForUpdate();
+    } catch (err) {
+      console.warn("checkForUpdate failed", err);
+    }
+  },
+  installUpdate: async () => {
+    try {
+      await cmd.installUpdateAndRelaunch();
+    } catch (err) {
+      console.warn("installUpdate failed", err);
+    }
   },
 }));
 

@@ -14,6 +14,8 @@ import {
   onFocusedWindowChanged,
   onOpenSettings,
   onPrefsChanged,
+  onUpdateProgress,
+  onUpdateState,
   onWindowsChanged,
 } from "./ipc/events";
 import {
@@ -116,6 +118,18 @@ export default function App() {
         if (viewRef.current === "overlay") enterSettings();
       }),
       onPrefsChanged(() => hydrate()),
+      onUpdateState((p) =>
+        useDoclickStore.setState({
+          updateState: p.state,
+          updateAvailableVersion: p.version,
+          updateNotes: p.notes,
+          updateError: p.error,
+          // Reset progress whenever the state isn't actively downloading.
+          updateProgress:
+            p.state === "downloading" ? useDoclickStore.getState().updateProgress : null,
+        }),
+      ),
+      onUpdateProgress((p) => useDoclickStore.setState({ updateProgress: p })),
     ];
 
     // Persist window position on move (debounced). Overlay and settings

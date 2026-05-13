@@ -13,7 +13,10 @@ mod state;
 mod travel;
 mod windows;
 
-use crate::events::{BroadcastStatePayload, FocusedWindowChangedPayload, WindowsChangedPayload};
+use crate::events::{
+    BroadcastStatePayload, FocusedWindowChangedPayload, UpdateState, UpdateStatePayload,
+    WindowsChangedPayload, EVT_UPDATE_STATE,
+};
 use crate::state::{AppState, BroadcastReason, Orientation};
 use crate::windows::geometry::enable_per_monitor_dpi_awareness;
 
@@ -38,6 +41,7 @@ pub fn run() {
                 .with_handler(shortcuts::dispatch)
                 .build(),
         )
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .on_window_event(|window, event| {
             // Closing the window from its custom TitleBar quits the app.
             if let tauri::WindowEvent::CloseRequested { .. } = event {
@@ -67,6 +71,8 @@ pub fn run() {
             commands::focus_next_character,
             commands::focus_prev_character,
             commands::focus_main_character,
+            commands::check_for_update,
+            commands::install_update_and_relaunch,
         ])
         .setup(move |app| {
             let handle = app.handle().clone();
@@ -133,6 +139,9 @@ pub fn run() {
 
             // Register all configured global shortcuts (includes panic hotkey).
             shortcuts::reregister_all(&handle, &app_state);
+
+            // Background updater check (~30s after startup, throttled to 6h).
+            spawn_update_check(handle.clone(), app_state.clone());
 
             Ok(())
         })
@@ -211,6 +220,58 @@ pub fn app_hwnds(app: &tauri::AppHandle) -> Vec<isize> {
         .values()
         .filter_map(|w| w.hwnd().ok().map(|h| h.0 as isize))
         .collect()
+}
+
+/// One-shot startup updater check. Sleeps 30s so it doesn't contend with
+/// hook install and first window enumeration, then performs a single
+/// network check. Errors are swallowed silently — only manual checks
+/// (initiated from the About tab) surface failures to the user.
+fn spawn_update_check(app: tauri::AppHandle, state: AppState) {
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(Duration::from_secs(30)).await;
+
+        {
+            let inner = state.read();
+            if inner.update_check_in_flight {
+                return;
+            }
+            if let Some(last) = inner.last_update_check {
+                if last.elapsed() < Duration::from_secs(6 * 3600) {
+                    return;
+                }
+            }
+        }
+        state.write().update_check_in_flight = true;
+
+        let result = commands::run_update_check(&app).await;
+
+        {
+            let mut inner = state.write();
+            inner.update_check_in_flight = false;
+            inner.last_update_check = Some(std::time::Instant::now());
+        }
+
+        match result {
+            Ok(Some((version, notes))) => {
+                tracing::info!(version = %version, "update available");
+                let _ = app.emit(
+                    EVT_UPDATE_STATE,
+                    UpdateStatePayload {
+                        state: UpdateState::Available,
+                        version: Some(version),
+                        notes,
+                        error: None,
+                    },
+                );
+            }
+            Ok(None) => {
+                tracing::debug!("startup update check: up to date");
+            }
+            Err(e) => {
+                tracing::warn!(error = %e, "startup update check failed (silenced)");
+            }
+        }
+    });
 }
 
 fn spawn_foreground_watchdog(app: tauri::AppHandle, state: AppState) {

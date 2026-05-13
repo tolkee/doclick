@@ -139,6 +139,13 @@ pub struct InnerState {
     pub profile_order: Vec<String>,
     pub orientation: Orientation,
     pub shortcuts: ShortcutBindings,
+    /// Runtime-only — never persisted. Guards against concurrent
+    /// `check_for_update` invocations (user mashes the manual button while
+    /// the startup check is still in flight).
+    pub update_check_in_flight: bool,
+    /// Runtime-only — used to throttle the startup auto-check to at most
+    /// once every 6h within a single process lifetime.
+    pub last_update_check: Option<std::time::Instant>,
 }
 
 impl Default for InnerState {
@@ -159,6 +166,8 @@ impl Default for InnerState {
             profile_order: Vec::new(),
             orientation: Orientation::default(),
             shortcuts,
+            update_check_in_flight: false,
+            last_update_check: None,
         }
     }
 }

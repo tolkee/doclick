@@ -9,6 +9,8 @@ pub const EVT_ERROR: &str = "error";
 pub const EVT_OPEN_SETTINGS: &str = "open-settings";
 pub const EVT_PREFS_CHANGED: &str = "prefs-changed";
 pub const EVT_FOCUSED_WINDOW_CHANGED: &str = "focused-window-changed";
+pub const EVT_UPDATE_STATE: &str = "update-state-changed";
+pub const EVT_UPDATE_PROGRESS: &str = "update-progress";
 
 #[derive(Debug, Clone, Serialize)]
 pub struct WindowsChangedPayload {
@@ -39,4 +41,33 @@ pub enum BroadcastTickPayload {
 pub struct ErrorPayload {
     pub message: String,
     pub context: Option<String>,
+}
+
+/// Emitted to the frontend via `EVT_UPDATE_STATE`. The TS store has an
+/// extra `"idle"` initial state; Rust never emits it (the backend only
+/// reports transitions). Keep the lowercase serde tags in sync with the
+/// `UpdateState` union in `src/types.ts`.
+#[derive(Debug, Clone, Copy, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum UpdateState {
+    Checking,
+    Available,
+    NoUpdate,
+    Downloading,
+    Installing,
+    Error,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct UpdateStatePayload {
+    pub state: UpdateState,
+    pub version: Option<String>,
+    pub notes: Option<String>,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize)]
+pub struct UpdateProgressPayload {
+    pub downloaded: u64,
+    pub total: Option<u64>,
 }
