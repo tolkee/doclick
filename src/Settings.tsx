@@ -5,13 +5,15 @@ import { AboutTab } from "./Settings/AboutTab";
 import { CharactersTab } from "./Settings/CharactersTab";
 import { GlobalTab } from "./Settings/GlobalTab";
 import { ShortcutsTab } from "./Settings/ShortcutsTab";
+import { StartupTab } from "./Settings/StartupTab";
 
-export type SettingsTabId = "global" | "characters" | "shortcuts" | "about";
+export type SettingsTabId = "global" | "characters" | "shortcuts" | "startup" | "about";
 
 const TABS: { id: SettingsTabId; label: string }[] = [
   { id: "global", label: "Général" },
   { id: "characters", label: "Personnages" },
   { id: "shortcuts", label: "Raccourcis" },
+  { id: "startup", label: "Démarrage" },
   { id: "about", label: "À propos" },
 ];
 
@@ -53,6 +55,9 @@ export default function Settings({ onBack, initialTab = "global" }: Props) {
           </TabsContent>
           <TabsContent value="shortcuts" className="mt-0">
             <ShortcutsTab />
+          </TabsContent>
+          <TabsContent value="startup" className="mt-0">
+            <StartupTab onNavigate={setTab} />
           </TabsContent>
           <TabsContent value="about" className="mt-0">
             <AboutTab />

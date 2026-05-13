@@ -117,6 +117,10 @@ pub struct ShortcutBindings {
     /// Reads `/travel X,Y` from the clipboard, focuses the main character's
     /// window, and submits the command via Space → Ctrl+V → Enter.
     pub send_travel_command: Option<String>,
+    /// Manually run the startup flow (launch Ankama Launcher + Ctrl+N
+    /// accounts, then Ganymede). Only effective when
+    /// `startup_flow.enabled` is true; otherwise registration is skipped.
+    pub trigger_startup_flow: Option<String>,
 }
 
 impl ShortcutBindings {
@@ -142,6 +146,10 @@ pub struct InnerState {
     pub profile_order: Vec<String>,
     pub orientation: Orientation,
     pub shortcuts: ShortcutBindings,
+    pub startup_flow: crate::startup_flow::StartupFlowConfig,
+    /// Runtime-only — never persisted. Live progress of the startup flow,
+    /// emitted to the UI via `EVT_STARTUP_FLOW_STATE`.
+    pub startup_flow_runtime: crate::startup_flow::StartupRuntimeState,
     /// Runtime-only — never persisted. Guards against concurrent
     /// `check_for_update` invocations (user mashes the manual button while
     /// the startup check is still in flight).
@@ -169,6 +177,8 @@ impl Default for InnerState {
             profile_order: Vec::new(),
             orientation: Orientation::default(),
             shortcuts,
+            startup_flow: crate::startup_flow::StartupFlowConfig::default(),
+            startup_flow_runtime: crate::startup_flow::StartupRuntimeState::default(),
             update_check_in_flight: false,
             last_update_check: None,
         }
@@ -325,6 +335,8 @@ pub struct StateSnapshot {
     pub overlay_sizes: OverlaySizes,
     pub settings_size: Option<(u32, u32)>,
     pub shortcuts: ShortcutBindings,
+    pub startup_flow: crate::startup_flow::StartupFlowConfig,
+    pub startup_flow_runtime: crate::startup_flow::StartupRuntimeState,
 }
 
 impl InnerState {
@@ -342,6 +354,8 @@ impl InnerState {
             overlay_sizes: self.overlay_sizes,
             settings_size: self.settings_size,
             shortcuts: self.shortcuts.clone(),
+            startup_flow: self.startup_flow.clone(),
+            startup_flow_runtime: self.startup_flow_runtime.clone(),
         }
     }
 }

@@ -14,6 +14,7 @@ use crate::events::{
     WindowsChangedPayload, EVT_BROADCAST_STATE, EVT_PREFS_CHANGED, EVT_UPDATE_PROGRESS,
     EVT_UPDATE_STATE, EVT_WINDOWS_CHANGED,
 };
+use crate::startup_flow::{self, StartupFlowConfig};
 use crate::state::{
     AppState, BroadcastReason, CharacterProfile, Orientation, ShortcutBindings, StateSnapshot,
     WindowEntry,
@@ -296,6 +297,83 @@ pub fn set_shortcuts(
     crate::shortcuts::reregister_all(&app, &state);
     emit_prefs_changed(&app);
     Ok(())
+}
+
+/// Set the entire startup-flow configuration in one call. Diffs the
+/// per-action exe paths against the previous value: any change clears
+/// the action's sticky `last_path_error` (the user is acknowledging
+/// and correcting the broken path).
+#[tauri::command]
+pub fn set_startup_flow_config(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    config: StartupFlowConfig,
+) -> Result<(), CmdError> {
+    {
+        let mut inner = state.write();
+        let mut next = config;
+
+        if next.accounts.exe_path != inner.startup_flow.accounts.exe_path {
+            next.accounts.last_path_error = None;
+        }
+        if next.ganymede.exe_path != inner.startup_flow.ganymede.exe_path {
+            next.ganymede.last_path_error = None;
+        }
+
+        inner.startup_flow = next;
+    }
+    persist(&app, &state)?;
+    crate::shortcuts::reregister_all(&app, &state);
+    emit_prefs_changed(&app);
+    Ok(())
+}
+
+/// Trigger the startup flow asynchronously. Returns immediately; progress
+/// arrives via `EVT_STARTUP_FLOW_STATE`. Concurrent calls are gated
+/// internally — the second call is a no-op while the first is still
+/// running.
+#[tauri::command]
+pub fn run_startup_flow(app: AppHandle, state: State<'_, AppState>) -> Result<(), CmdError> {
+    if !state.read().startup_flow.enabled {
+        return Err(CmdError::Invalid(
+            "startup flow master switch is off".into(),
+        ));
+    }
+    let app_clone = app.clone();
+    let state_clone = state.inner().clone();
+    tauri::async_runtime::spawn(async move {
+        startup_flow::run(app_clone, state_clone).await;
+    });
+    Ok(())
+}
+
+/// Resolve the default exe path for the given action kind, if the file
+/// exists at the standard `%LOCALAPPDATA%` location. Returns the path as
+/// a string for direct rendering in the UI (placeholder for empty
+/// inputs). When `None`, the caller should fall back to the hint string.
+#[tauri::command]
+pub fn get_default_exe_path(kind: String) -> Result<Option<String>, CmdError> {
+    let p = match kind.as_str() {
+        "launcher" => startup_flow::probe::default_launcher_path(),
+        "ganymede" => startup_flow::probe::default_ganymede_path(),
+        other => return Err(CmdError::Invalid(format!("kind={other}"))),
+    };
+    Ok(p.map(|p| p.to_string_lossy().into_owned()))
+}
+
+/// Like `get_default_exe_path` but always returns the *would-be* path
+/// even if it doesn't exist on disk. Used by the UI as the input
+/// placeholder so the user sees where Doclick would look. Distinct from
+/// `get_default_exe_path` to keep the "auto-fill when present" semantics
+/// of the latter clean.
+#[tauri::command]
+pub fn get_default_exe_path_hint(kind: String) -> Result<Option<String>, CmdError> {
+    let p = match kind.as_str() {
+        "launcher" => startup_flow::probe::default_launcher_path_hint(),
+        "ganymede" => startup_flow::probe::default_ganymede_path_hint(),
+        other => return Err(CmdError::Invalid(format!("kind={other}"))),
+    };
+    Ok(p)
 }
 
 #[tauri::command]

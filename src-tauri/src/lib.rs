@@ -9,6 +9,7 @@ mod diagnostics;
 mod events;
 mod hooks;
 mod shortcuts;
+mod startup_flow;
 mod state;
 mod travel;
 mod windows;
@@ -42,6 +43,7 @@ pub fn run() {
                 .build(),
         )
         .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_dialog::init())
         .on_window_event(|window, event| {
             // Closing the window from its custom TitleBar quits the app.
             if let tauri::WindowEvent::CloseRequested { .. } = event {
@@ -67,6 +69,10 @@ pub fn run() {
             commands::set_profile_order,
             commands::set_orientation,
             commands::set_shortcuts,
+            commands::set_startup_flow_config,
+            commands::run_startup_flow,
+            commands::get_default_exe_path,
+            commands::get_default_exe_path_hint,
             commands::focus_character_at_index,
             commands::focus_next_character,
             commands::focus_prev_character,
@@ -95,6 +101,7 @@ pub fn run() {
                 inner.orientation = cfg.orientation;
                 inner.shortcuts = cfg.shortcuts;
                 inner.shortcuts.ensure_focus_char_slots();
+                inner.startup_flow = cfg.startup_flow;
                 let saved_size = match inner.orientation {
                     Orientation::Horizontal => inner.overlay_sizes.horizontal,
                     Orientation::Vertical => inner.overlay_sizes.vertical,
@@ -142,6 +149,19 @@ pub fn run() {
 
             // Background updater check (~30s after startup, throttled to 6h).
             spawn_update_check(handle.clone(), app_state.clone());
+
+            // Run the startup flow if the user opted in to auto-on-start.
+            let auto_run = {
+                let inner = app_state.read();
+                inner.startup_flow.enabled && inner.startup_flow.run_on_app_start
+            };
+            if auto_run {
+                let app_clone = handle.clone();
+                let state_clone = app_state.clone();
+                tauri::async_runtime::spawn(async move {
+                    startup_flow::run(app_clone, state_clone).await;
+                });
+            }
 
             Ok(())
         })

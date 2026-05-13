@@ -37,6 +37,7 @@ export interface ShortcutBindings {
   focus_prev: string | null;
   focus_main: string | null;
   send_travel_command: string | null;
+  trigger_startup_flow: string | null;
 }
 
 export const EMPTY_SHORTCUT_BINDINGS: ShortcutBindings = {
@@ -49,7 +50,60 @@ export const EMPTY_SHORTCUT_BINDINGS: ShortcutBindings = {
   focus_prev: null,
   focus_main: null,
   send_travel_command: null,
+  trigger_startup_flow: null,
 };
+
+export interface LaunchAccountsAction {
+  enabled: boolean;
+  exe_path: string | null;
+  last_path_error: string | null;
+}
+
+export interface LaunchGanymedeAction {
+  enabled: boolean;
+  exe_path: string | null;
+  last_path_error: string | null;
+}
+
+export interface StartupFlowConfig {
+  enabled: boolean;
+  run_on_app_start: boolean;
+  accounts: LaunchAccountsAction;
+  ganymede: LaunchGanymedeAction;
+}
+
+export const EMPTY_STARTUP_FLOW_CONFIG: StartupFlowConfig = {
+  enabled: false,
+  run_on_app_start: false,
+  accounts: { enabled: false, exe_path: null, last_path_error: null },
+  ganymede: { enabled: false, exe_path: null, last_path_error: null },
+};
+
+export type StepStatus = "idle" | "running" | "skipped" | "done" | "failed";
+
+export interface StepState {
+  status: StepStatus;
+  message: string | null;
+  last_run_ms: number | null;
+}
+
+export interface StartupRuntimeState {
+  running: boolean;
+  accounts: StepState;
+  ganymede: StepState;
+}
+
+export const EMPTY_STARTUP_RUNTIME: StartupRuntimeState = {
+  running: false,
+  accounts: { status: "idle", message: null, last_run_ms: null },
+  ganymede: { status: "idle", message: null, last_run_ms: null },
+};
+
+export interface StartupFlowStatePayload {
+  running: boolean;
+  accounts: StepState;
+  ganymede: StepState;
+}
 
 export interface OverlaySizes {
   horizontal: [number, number] | null;
@@ -69,6 +123,8 @@ export interface StateSnapshot {
   overlay_sizes: OverlaySizes;
   settings_size: [number, number] | null;
   shortcuts: ShortcutBindings;
+  startup_flow: StartupFlowConfig;
+  startup_flow_runtime: StartupRuntimeState;
 }
 
 export type BroadcastReason = "user" | "auto-disabled-foreground-mismatch" | "panic-hotkey";

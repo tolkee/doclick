@@ -29,6 +29,7 @@
     "core:window:allow-is-maximized",
     "core:webview:allow-internal-toggle-devtools",
     "global-shortcut:default",
-    "updater:default"
+    "updater:default",
+    "dialog:allow-open"
   ]
 }

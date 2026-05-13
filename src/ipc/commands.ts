@@ -3,6 +3,7 @@ import type {
   CharacterProfile,
   Orientation,
   ShortcutBindings,
+  StartupFlowConfig,
   StateSnapshot,
   WindowEntry,
 } from "../types";
@@ -48,6 +49,17 @@ export const setOrientation = (orientation: Orientation) =>
 
 export const setShortcuts = (shortcuts: ShortcutBindings) =>
   invoke<void>("set_shortcuts", { shortcuts });
+
+export const setStartupFlowConfig = (config: StartupFlowConfig) =>
+  invoke<void>("set_startup_flow_config", { config });
+
+export const runStartupFlow = () => invoke<void>("run_startup_flow");
+
+export const getDefaultExePath = (kind: "launcher" | "ganymede") =>
+  invoke<string | null>("get_default_exe_path", { kind });
+
+export const getDefaultExePathHint = (kind: "launcher" | "ganymede") =>
+  invoke<string | null>("get_default_exe_path_hint", { kind });
 
 export const focusCharacterAtIndex = (index: number) =>
   invoke<void>("focus_character_at_index", { index });

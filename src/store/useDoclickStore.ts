@@ -4,9 +4,13 @@ import {
   type BroadcastReason,
   type CharacterProfile,
   EMPTY_SHORTCUT_BINDINGS,
+  EMPTY_STARTUP_FLOW_CONFIG,
+  EMPTY_STARTUP_RUNTIME,
   type Orientation,
   type OverlaySizes,
   type ShortcutBindings,
+  type StartupFlowConfig,
+  type StartupRuntimeState,
   type UpdateProgressPayload,
   type UpdateState,
   type WindowEntry,
@@ -26,6 +30,8 @@ interface DoclickState {
   overlaySizes: OverlaySizes;
   settingsSize: [number, number] | null;
   shortcuts: ShortcutBindings;
+  startupFlow: StartupFlowConfig;
+  startupRuntime: StartupRuntimeState;
   broadcastKeys: number[];
   focusedHwnd: number | null;
   lastError: string | null;
@@ -59,6 +65,8 @@ interface DoclickState {
   saveOverlaySize: (orientation: Orientation, width: number, height: number) => Promise<void>;
   saveSettingsSize: (width: number, height: number) => Promise<void>;
   setShortcuts: (shortcuts: ShortcutBindings) => Promise<void>;
+  setStartupFlow: (config: StartupFlowConfig) => Promise<void>;
+  runStartupFlow: () => Promise<void>;
   setPanicHotkey: (accelerator: string) => Promise<void>;
   setBroadcastKeys: (keys: number[]) => Promise<void>;
 }
@@ -77,6 +85,8 @@ export const useDoclickStore = create<DoclickState>((set, get) => ({
   overlaySizes: { horizontal: null, vertical: null },
   settingsSize: null,
   shortcuts: EMPTY_SHORTCUT_BINDINGS,
+  startupFlow: EMPTY_STARTUP_FLOW_CONFIG,
+  startupRuntime: EMPTY_STARTUP_RUNTIME,
   broadcastKeys: [],
   focusedHwnd: null,
   lastError: null,
@@ -106,6 +116,8 @@ export const useDoclickStore = create<DoclickState>((set, get) => ({
       overlaySizes: snap.overlay_sizes ?? { horizontal: null, vertical: null },
       settingsSize: snap.settings_size ?? null,
       shortcuts,
+      startupFlow: snap.startup_flow ?? EMPTY_STARTUP_FLOW_CONFIG,
+      startupRuntime: snap.startup_flow_runtime ?? EMPTY_STARTUP_RUNTIME,
       broadcastKeys: snap.broadcast_keys,
       hydrated: true,
     });
@@ -168,6 +180,17 @@ export const useDoclickStore = create<DoclickState>((set, get) => ({
     };
     await cmd.setShortcuts(padded);
     set({ shortcuts: padded });
+  },
+  setStartupFlow: async (config) => {
+    await cmd.setStartupFlowConfig(config);
+    set({ startupFlow: config });
+  },
+  runStartupFlow: async () => {
+    try {
+      await cmd.runStartupFlow();
+    } catch (err) {
+      console.warn("runStartupFlow failed", err);
+    }
   },
   setPanicHotkey: async (accelerator) => {
     await cmd.setPanicHotkey(accelerator);

@@ -8,6 +8,7 @@ const GLOBAL_ROWS: { key: keyof Omit<ShortcutBindings, "focus_char">; label: str
   { key: "close_app", label: "Fermer l'application" },
   { key: "close_all", label: "Tout fermer (Dofus, Ganymède, Doclick)" },
   { key: "send_travel_command", label: "Envoyer /travel du presse-papiers" },
+  { key: "trigger_startup_flow", label: "Lancer la routine de démarrage" },
 ];
 
 const NAV_ROWS: { key: keyof Omit<ShortcutBindings, "focus_char">; label: string }[] = [

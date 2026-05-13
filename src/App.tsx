@@ -5,6 +5,7 @@ import { BroadcastToggle } from "./components/BroadcastToggle";
 import { KebabButton } from "./components/KebabButton";
 import { PanicIndicator } from "./components/PanicIndicator";
 import { ResizeHandles } from "./components/ResizeHandles";
+import { StartupFlowBadge } from "./components/StartupFlowBadge";
 import { VerticalOverlayChrome } from "./components/VerticalOverlayChrome";
 import { saveOverlayPosition } from "./ipc/commands";
 import {
@@ -14,6 +15,7 @@ import {
   onFocusedWindowChanged,
   onOpenSettings,
   onPrefsChanged,
+  onStartupFlowState,
   onUpdateProgress,
   onUpdateState,
   onWindowsChanged,
@@ -130,6 +132,15 @@ export default function App() {
         }),
       ),
       onUpdateProgress((p) => useDoclickStore.setState({ updateProgress: p })),
+      onStartupFlowState((p) =>
+        useDoclickStore.setState({
+          startupRuntime: {
+            running: p.running,
+            accounts: p.accounts,
+            ganymede: p.ganymede,
+          },
+        }),
+      ),
     ];
 
     // Persist window position on move (debounced). Overlay and settings
@@ -259,6 +270,7 @@ export default function App() {
           </div>
         </div>
         <PanicIndicator />
+        <StartupFlowBadge />
         <ResizeHandles mode="overlay-vertical" />
       </div>
     );
@@ -280,6 +292,7 @@ export default function App() {
         <KebabButton anchor="below-right" />
       </div>
       <PanicIndicator />
+      <StartupFlowBadge />
       <ResizeHandles mode="overlay-horizontal" />
     </div>
   );

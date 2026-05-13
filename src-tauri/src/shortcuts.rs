@@ -29,6 +29,7 @@ pub enum ShortcutAction {
     FocusPrev,
     FocusMain,
     SendTravelCommand,
+    TriggerStartupFlow,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -93,6 +94,12 @@ fn register_bindings(
     kbd: &mut HashMap<Shortcut, ShortcutAction>,
     mouse: &mut HashMap<MouseShortcut, ShortcutAction>,
 ) {
+    // Read the master switch once — it gates `TriggerStartupFlow` so the
+    // binding stays in `profiles.json` (the user keeps their accelerator
+    // configured) but doesn't fire while the feature is off.
+    let startup_flow_enabled = app
+        .try_state::<AppState>()
+        .is_some_and(|s| s.read().startup_flow.enabled);
     if let Some(a) = b.toggle_broadcast.as_deref() {
         register_one(app, a, ShortcutAction::ToggleBroadcast, kbd, mouse);
     }
@@ -121,6 +128,11 @@ fn register_bindings(
     }
     if let Some(a) = b.send_travel_command.as_deref() {
         register_one(app, a, ShortcutAction::SendTravelCommand, kbd, mouse);
+    }
+    if startup_flow_enabled {
+        if let Some(a) = b.trigger_startup_flow.as_deref() {
+            register_one(app, a, ShortcutAction::TriggerStartupFlow, kbd, mouse);
+        }
     }
 }
 
@@ -196,7 +208,8 @@ pub fn should_run(app: &AppHandle, action: ShortcutAction) -> bool {
         ShortcutAction::PanicHotkey
         | ShortcutAction::OpenSettings
         | ShortcutAction::CloseApp
-        | ShortcutAction::CloseAll => return true,
+        | ShortcutAction::CloseAll
+        | ShortcutAction::TriggerStartupFlow => return true,
         _ => {}
     }
     let state = match app.try_state::<AppState>() {
@@ -272,6 +285,19 @@ pub fn run_action(app: &AppHandle, action: ShortcutAction) {
         }
         ShortcutAction::SendTravelCommand => {
             crate::travel::run_travel_from_clipboard(&app_handle, state);
+        }
+        ShortcutAction::TriggerStartupFlow => {
+            // The shortcut is only registered while the master switch is
+            // on (see `register_bindings`), but check again here to
+            // remain consistent if the switch flips between registration
+            // and a queued dispatch.
+            if !state.read().startup_flow.enabled {
+                return;
+            }
+            let state_clone = state.inner().clone();
+            tauri::async_runtime::spawn(async move {
+                crate::startup_flow::run(app_handle, state_clone).await;
+            });
         }
     }
 }

@@ -2,6 +2,7 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
+use crate::startup_flow::StartupFlowConfig;
 use crate::state::{
     default_broadcast_keys, CharacterProfile, InnerState, Orientation, OverlaySizes,
     ShortcutBindings,
@@ -31,6 +32,8 @@ pub struct PersistedConfig {
     pub orientation: Orientation,
     #[serde(default)]
     pub shortcuts: ShortcutBindings,
+    #[serde(default)]
+    pub startup_flow: StartupFlowConfig,
 }
 
 fn default_panic_hotkey() -> String {
@@ -53,6 +56,7 @@ impl Default for PersistedConfig {
             profile_order: Vec::new(),
             orientation: Orientation::default(),
             shortcuts,
+            startup_flow: StartupFlowConfig::default(),
         }
     }
 }
@@ -71,6 +75,7 @@ impl PersistedConfig {
             profile_order: inner.profile_order.clone(),
             orientation: inner.orientation,
             shortcuts: inner.shortcuts.clone(),
+            startup_flow: inner.startup_flow.clone(),
         }
     }
 }

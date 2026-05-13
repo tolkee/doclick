@@ -11,6 +11,7 @@ pub const EVT_PREFS_CHANGED: &str = "prefs-changed";
 pub const EVT_FOCUSED_WINDOW_CHANGED: &str = "focused-window-changed";
 pub const EVT_UPDATE_STATE: &str = "update-state-changed";
 pub const EVT_UPDATE_PROGRESS: &str = "update-progress";
+pub const EVT_STARTUP_FLOW_STATE: &str = "startup-flow-state";
 
 #[derive(Debug, Clone, Serialize)]
 pub struct WindowsChangedPayload {
