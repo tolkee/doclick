@@ -40,6 +40,9 @@ export const saveOverlaySize = (orientation: Orientation, width: number, height:
 export const saveSettingsSize = (width: number, height: number) =>
   invoke<void>("save_settings_size", { width, height });
 
+export const saveSettingsPosition = (x: number, y: number) =>
+  invoke<void>("save_settings_position", { x, y });
+
 export const openSettings = (tab?: SettingsTabId) =>
   invoke<void>("open_settings", { tab: tab ?? null });
 
