@@ -256,7 +256,10 @@ pub fn run_action(app: &AppHandle, action: ShortcutAction) {
         ShortcutAction::CloseAll => {
             crate::windows::close::close_dofus_and_companion_windows();
             let _ = commands::persist(&app_handle, state.inner());
-            app_handle.exit(0);
+            // Hard-exit: `app_handle.exit(0)` from the global-hotkey thread
+            // was observed to leave Doclick running after the other windows
+            // closed. Persistence already ran, so skipping destructors is safe.
+            std::process::exit(0);
         }
         ShortcutAction::FocusChar(i) => {
             let _ = commands::focus_character_at_index(state, i);
