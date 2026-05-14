@@ -125,10 +125,7 @@ pub fn run() {
                     (None, None, None, None)
                 };
 
-            // Populate `live_windows` synchronously *before* showing the
-            // overlay so the webview's first `hydrate()` invoke can't race
-            // an empty state snapshot. The watcher's async loop is started
-            // by the same call (see `spawn_window_watcher`).
+            // Window enumeration — sync init must precede `overlay.show()`.
             spawn_window_watcher(handle.clone(), app_state.clone());
 
             // Restore overlay position + size if previously saved, then show
@@ -200,21 +197,17 @@ pub fn run() {
 }
 
 fn spawn_window_watcher(app: tauri::AppHandle, state: AppState) {
-    // Synchronous initial enumeration so live_windows is populated before
-    // the overlay's webview can call `get_state_snapshot`. Without this,
-    // the first `hydrate()` snapshots an empty list and leaves pre-existing
-    // Dofus windows invisible until an HWND-level change forces the next
-    // delta-emit.
+    // Sync initial enum so the webview's first `get_state_snapshot` sees
+    // pre-existing Dofus windows. Without this they stay invisible until
+    // an HWND-level change forces the async loop's next delta-emit.
     let initial = windows::enumerate::enumerate_dofus_windows();
     let initial_signature: Vec<(isize, String)> =
         initial.iter().map(|w| (w.hwnd, w.title.clone())).collect();
     state.write().live_windows = initial;
 
-    // Belt-and-braces: also emit one windows-changed event so a listener
-    // that registers *after* its initial hydrate (slow webview boot) still
-    // picks up the baseline. The async loop below seeds `last_signature`
-    // to the initial enumeration, so it would not otherwise emit until the
-    // user opens or closes a Dofus window.
+    // One baseline emit — the async loop seeds `last_signature` from the
+    // init, so it won't fire until an HWND change. Catches listeners that
+    // subscribe after their first hydrate.
     let _ = app.emit(
         events::EVT_WINDOWS_CHANGED,
         WindowsChangedPayload {
