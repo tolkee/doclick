@@ -4,7 +4,7 @@ import { ResizeHandles } from "./components/ResizeHandles";
 import { TitleBar } from "./components/TitleBar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs";
 import { saveSettingsPosition } from "./ipc/commands";
-import { onOpenSettings } from "./ipc/events";
+import { onOpenSettings, onUpdateProgress, onUpdateState } from "./ipc/events";
 import { isValidSettingsSize } from "./lib/overlaySize";
 import { AboutTab } from "./Settings/AboutTab";
 import { CharactersTab } from "./Settings/CharactersTab";
@@ -38,6 +38,29 @@ export default function Settings() {
     });
     return () => {
       offP.then((off) => off()).catch(() => {});
+    };
+  }, []);
+
+  // The settings webview has its own store — without these listeners the
+  // À propos tab's "Vérifier les mises à jour" button never reflects the
+  // check's progress (the overlay window does, which is why the kebab dot
+  // works in isolation).
+  useEffect(() => {
+    const subs = [
+      onUpdateState((p) =>
+        useDoclickStore.setState({
+          updateState: p.state,
+          updateAvailableVersion: p.version,
+          updateNotes: p.notes,
+          updateError: p.error,
+          updateProgress:
+            p.state === "downloading" ? useDoclickStore.getState().updateProgress : null,
+        }),
+      ),
+      onUpdateProgress((p) => useDoclickStore.setState({ updateProgress: p })),
+    ];
+    return () => {
+      for (const s of subs) s.then((off) => off()).catch(() => {});
     };
   }, []);
 
