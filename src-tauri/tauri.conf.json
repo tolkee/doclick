@@ -18,7 +18,7 @@
         "alwaysOnTop": true,
         "decorations": false,
         "transparent": true,
-        "skipTaskbar": true,
+        "skipTaskbar": false,
         "resizable": false,
         "minimizable": true,
         "shadow": false,
@@ -78,9 +78,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": [
-      "nsis"
-    ],
+    "targets": ["nsis"],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -97,9 +95,7 @@
   },
   "plugins": {
     "updater": {
-      "endpoints": [
-        "https://github.com/tolkee/doclick/releases/latest/download/latest.json"
-      ],
+      "endpoints": ["https://github.com/tolkee/doclick/releases/latest/download/latest.json"],
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEM3MTExQTBEOTEwRDI1OTkKUldTWkpRMlJEUm9SeC9Ub1A1WWdOdWpoNnNpcjRnSFVWT3lham1tbWlVTmtyZmUrZE51cDhvU0wK",
       "windows": {
         "installMode": "passive"
