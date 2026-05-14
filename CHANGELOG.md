@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.11.0](https://github.com/tolkee/doclick/compare/v0.10.0...v0.11.0) (2026-05-14)
+
+
+### Features
+
+* add "tout fermer" shortcut to close Dofus, Ganymede and Doclick ([618b714](https://github.com/tolkee/doclick/commit/618b7147ccaba6af296ad1c69d463ec0eafa047d))
+* add overlay size presets (small/medium/large) ([#33](https://github.com/tolkee/doclick/issues/33)) ([439e838](https://github.com/tolkee/doclick/commit/439e83842aa73d11f252265e01edae2d3f002b75))
+* persist settings window position ([48c3675](https://github.com/tolkee/doclick/commit/48c3675543b731b6c99beb53ddc1a21f9e64d250))
+* split settings into a separate window ([9f3eb78](https://github.com/tolkee/doclick/commit/9f3eb788fd828f544892b4c105e74aa6ea76b929))
+
+
+### Bug Fixes
+
+* grant window capabilities to the settings window ([1e6fff5](https://github.com/tolkee/doclick/commit/1e6fff5995720ea4001128fb0de7b4ad9bbf3d26))
+
 ## [0.10.0](https://github.com/tolkee/doclick/compare/v0.9.1...v0.10.0) (2026-05-13)
 
 
