@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.12.1](https://github.com/tolkee/doclick/compare/v0.12.0...v0.12.1) (2026-05-14)
+
+
+### Bug Fixes
+
+* re-hydrate overlay 750ms after launch so initial state is correct ([5eb4825](https://github.com/tolkee/doclick/commit/5eb4825b47fb9d57113a3d8c96fc27ed0b509bd4))
+* react to update events in the settings webview ([f341c0b](https://github.com/tolkee/doclick/commit/f341c0b2e3d839ad99a4c08ded4f19f0472305f6))
+
 ## [0.12.0](https://github.com/tolkee/doclick/compare/v0.11.0...v0.12.0) (2026-05-14)
 
 
