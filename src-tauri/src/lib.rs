@@ -15,7 +15,7 @@ mod windows;
 
 use crate::events::{
     BroadcastStatePayload, FocusedWindowChangedPayload, UpdateState, UpdateStatePayload,
-    WindowsChangedPayload, EVT_UPDATE_STATE,
+    WindowsChangedPayload, EVT_PREFS_CHANGED, EVT_UPDATE_STATE,
 };
 use crate::state::{AppState, BroadcastReason, Orientation};
 use crate::windows::geometry::enable_per_monitor_dpi_awareness;
@@ -186,6 +186,13 @@ pub fn run() {
             // Background updater check (~30s after startup, throttled to 6h).
             spawn_update_check(handle.clone(), app_state.clone());
 
+            // One-shot re-hydrate ping ~750ms after launch. Covers the Tauri 2
+            // startup race where the webview's very first `get_state_snapshot`
+            // can resolve against partial state (config/window writes happen
+            // synchronously in setup but the listener attaching for the catch-
+            // up emit isn't ready until React mounts post-paint).
+            spawn_boot_rehydrate(handle.clone());
+
             Ok(())
         })
         .run(tauri::generate_context!());
@@ -204,16 +211,6 @@ fn spawn_window_watcher(app: tauri::AppHandle, state: AppState) {
     let initial_signature: Vec<(isize, String)> =
         initial.iter().map(|w| (w.hwnd, w.title.clone())).collect();
     state.write().live_windows = initial;
-
-    // One baseline emit — the async loop seeds `last_signature` from the
-    // init, so it won't fire until an HWND change. Catches listeners that
-    // subscribe after their first hydrate.
-    let _ = app.emit(
-        events::EVT_WINDOWS_CHANGED,
-        WindowsChangedPayload {
-            windows: state.snapshot_windows(),
-        },
-    );
 
     tauri::async_runtime::spawn(async move {
         let mut last_signature = initial_signature;
@@ -238,6 +235,18 @@ fn spawn_window_watcher(app: tauri::AppHandle, state: AppState) {
                 );
             }
         }
+    });
+}
+
+/// Emits `EVT_PREFS_CHANGED` once, ~750ms after launch. The overlay's
+/// `App.tsx` wires `onPrefsChanged` to a full `hydrate()`, so this guarantees
+/// a second snapshot round-trip after React has mounted and its listeners
+/// are attached — repairing the initial paint when the first invoke raced
+/// `setup`'s state writes.
+fn spawn_boot_rehydrate(app: tauri::AppHandle) {
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(Duration::from_millis(750)).await;
+        let _ = app.emit(EVT_PREFS_CHANGED, ());
     });
 }
 
