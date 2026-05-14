@@ -125,6 +125,12 @@ pub fn run() {
                     (None, None, None, None)
                 };
 
+            // Populate `live_windows` synchronously *before* showing the
+            // overlay so the webview's first `hydrate()` invoke can't race
+            // an empty state snapshot. The watcher's async loop is started
+            // by the same call (see `spawn_window_watcher`).
+            spawn_window_watcher(handle.clone(), app_state.clone());
+
             // Restore overlay position + size if previously saved, then show
             // the window. The overlay starts hidden in tauri.conf.json so the
             // first paint happens at the restored size, not the conf default.
@@ -171,9 +177,6 @@ pub fn run() {
             // Dispatcher thread (focus-cycle + SendInput worker).
             broadcast::dispatcher::start(handle.clone(), app_state.clone());
 
-            // Window enumeration timer.
-            spawn_window_watcher(handle.clone(), app_state.clone());
-
             // Foreground watchdog (auto-disable when no Dofus window is focused for ~5s).
             spawn_foreground_watchdog(handle.clone(), app_state.clone());
 
@@ -197,15 +200,27 @@ pub fn run() {
 }
 
 fn spawn_window_watcher(app: tauri::AppHandle, state: AppState) {
-    // Synchronous initial enumeration so live_windows is populated by the
-    // time setup() returns. Otherwise the webview's first hydrate() can
-    // race the async watcher's first tick and snapshot an empty list,
-    // leaving pre-existing Dofus windows invisible until an HWND-level
-    // change forces the next delta-emit.
+    // Synchronous initial enumeration so live_windows is populated before
+    // the overlay's webview can call `get_state_snapshot`. Without this,
+    // the first `hydrate()` snapshots an empty list and leaves pre-existing
+    // Dofus windows invisible until an HWND-level change forces the next
+    // delta-emit.
     let initial = windows::enumerate::enumerate_dofus_windows();
     let initial_signature: Vec<(isize, String)> =
         initial.iter().map(|w| (w.hwnd, w.title.clone())).collect();
     state.write().live_windows = initial;
+
+    // Belt-and-braces: also emit one windows-changed event so a listener
+    // that registers *after* its initial hydrate (slow webview boot) still
+    // picks up the baseline. The async loop below seeds `last_signature`
+    // to the initial enumeration, so it would not otherwise emit until the
+    // user opens or closes a Dofus window.
+    let _ = app.emit(
+        events::EVT_WINDOWS_CHANGED,
+        WindowsChangedPayload {
+            windows: state.snapshot_windows(),
+        },
+    );
 
     tauri::async_runtime::spawn(async move {
         let mut last_signature = initial_signature;
