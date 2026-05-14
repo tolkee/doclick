@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.12.0](https://github.com/tolkee/doclick/compare/v0.11.0...v0.12.0) (2026-05-14)
+
+
+### Features
+
+* also close Ankama Launcher with the "tout fermer" shortcut ([6e422ba](https://github.com/tolkee/doclick/commit/6e422ba7d55f3c14e31347c58886d47a5c9fd2ac))
+
+
+### Bug Fixes
+
+* actually exit Doclick from the "tout fermer" shortcut ([5bfaf21](https://github.com/tolkee/doclick/commit/5bfaf210b368b3c7f491c1407dfe498446f24551))
+* emit initial windows event so overlay populates on startup ([1390b83](https://github.com/tolkee/doclick/commit/1390b83588f9862943ef595901bcb7d849cad249))
+* give overlay a Windows taskbar entry so users can restore it ([0134e8f](https://github.com/tolkee/doclick/commit/0134e8fdd6fd93479485b304ecf805be1a1d340d))
+* make the whole overlay bar draggable except interactive controls ([24626cf](https://github.com/tolkee/doclick/commit/24626cfefc8c34224ba0e2fd7a1af0064c7d5a09))
+* stop reverting user overlay resize when windows arrive late ([d21172c](https://github.com/tolkee/doclick/commit/d21172c4a4c6d5b9d5b7983a20dc91eccb93f9ee))
+
 ## [0.11.0](https://github.com/tolkee/doclick/compare/v0.10.0...v0.11.0) (2026-05-14)
 
 
