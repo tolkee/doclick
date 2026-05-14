@@ -2,7 +2,7 @@ import { ArrowRight } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
 import { useDoclickStore } from "../store/useDoclickStore";
-import type { Orientation, SettingsTabId } from "../types";
+import type { Orientation, OverlayScale, SettingsTabId } from "../types";
 
 interface Props {
   onNavigate: (tab: SettingsTabId) => void;
@@ -11,6 +11,8 @@ interface Props {
 export function GlobalTab({ onNavigate }: Props) {
   const orientation = useDoclickStore((s) => s.orientation);
   const setOrientation = useDoclickStore((s) => s.setOrientation);
+  const overlayScale = useDoclickStore((s) => s.overlayScale);
+  const setOverlayScale = useDoclickStore((s) => s.setOverlayScale);
   const profiles = useDoclickStore((s) => s.profiles);
   const windows = useDoclickStore((s) => s.windows);
 
@@ -62,6 +64,18 @@ export function GlobalTab({ onNavigate }: Props) {
         >
           <ToggleGroupItem value="horizontal">Horizontal</ToggleGroupItem>
           <ToggleGroupItem value="vertical">Vertical</ToggleGroupItem>
+        </ToggleGroup>
+      </Row>
+
+      <Row label="Taille">
+        <ToggleGroup
+          type="single"
+          value={overlayScale}
+          onValueChange={(v) => v && setOverlayScale(v as OverlayScale)}
+        >
+          <ToggleGroupItem value="small">Petit</ToggleGroupItem>
+          <ToggleGroupItem value="medium">Moyen</ToggleGroupItem>
+          <ToggleGroupItem value="large">Grand</ToggleGroupItem>
         </ToggleGroup>
       </Row>
     </div>

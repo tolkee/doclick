@@ -5,6 +5,7 @@ import {
   type CharacterProfile,
   EMPTY_SHORTCUT_BINDINGS,
   type Orientation,
+  type OverlayScale,
   type OverlaySizes,
   type ShortcutBindings,
   type UpdateProgressPayload,
@@ -23,6 +24,7 @@ interface DoclickState {
   mainCharacterId: string | null;
   profileOrder: string[];
   orientation: Orientation;
+  overlayScale: OverlayScale;
   overlaySizes: OverlaySizes;
   settingsSize: [number, number] | null;
   shortcuts: ShortcutBindings;
@@ -56,6 +58,7 @@ interface DoclickState {
   setMainCharacter: (id: string | null) => Promise<void>;
   setProfileOrder: (ids: string[]) => Promise<void>;
   setOrientation: (orientation: Orientation) => Promise<void>;
+  setOverlayScale: (scale: OverlayScale) => Promise<void>;
   saveOverlaySize: (orientation: Orientation, width: number, height: number) => Promise<void>;
   saveSettingsSize: (width: number, height: number) => Promise<void>;
   setShortcuts: (shortcuts: ShortcutBindings) => Promise<void>;
@@ -74,6 +77,7 @@ export const useDoclickStore = create<DoclickState>((set, get) => ({
   mainCharacterId: null,
   profileOrder: [],
   orientation: "horizontal",
+  overlayScale: "medium",
   overlaySizes: { horizontal: null, vertical: null },
   settingsSize: null,
   shortcuts: EMPTY_SHORTCUT_BINDINGS,
@@ -103,6 +107,7 @@ export const useDoclickStore = create<DoclickState>((set, get) => ({
       mainCharacterId: snap.main_character_id,
       profileOrder: snap.profile_order,
       orientation: snap.orientation,
+      overlayScale: snap.overlay_scale,
       overlaySizes: snap.overlay_sizes ?? { horizontal: null, vertical: null },
       settingsSize: snap.settings_size ?? null,
       shortcuts,
@@ -150,6 +155,10 @@ export const useDoclickStore = create<DoclickState>((set, get) => ({
     // App.tsx applies the overlay window size in response to the
     // orientation change — and skips it while the settings view is open
     // so the user's edits aren't shrunk away mid-toggle.
+  },
+  setOverlayScale: async (scale) => {
+    await cmd.setOverlayScale(scale);
+    set({ overlayScale: scale });
   },
   saveOverlaySize: async (orientation, width, height) => {
     await cmd.saveOverlaySize(orientation, width, height);

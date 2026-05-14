@@ -1,9 +1,19 @@
 import { useDoclickStore } from "../store/useDoclickStore";
+import type { OverlayScale } from "../types";
+
+/// Match CharacterChip's sizing so the broadcast toggle visually pairs
+/// with the chips it sits next to.
+const TOGGLE_SIZE: Record<OverlayScale, string> = {
+  small: "w-9 h-9",
+  medium: "w-11 h-11",
+  large: "w-[52px] h-[52px]",
+};
 
 export function BroadcastToggle() {
   const enabled = useDoclickStore((s) => s.broadcastEnabled);
   const live = useDoclickStore((s) => s.broadcastLive);
   const toggle = useDoclickStore((s) => s.toggleBroadcast);
+  const scale = useDoclickStore((s) => s.overlayScale);
 
   // Three states:
   //   off:    gray
@@ -24,7 +34,7 @@ export function BroadcastToggle() {
       onClick={toggle}
       title={tooltip}
       data-tauri-drag-region="false"
-      className={`relative flex items-center justify-center w-11 h-11 rounded-full transition-colors ${stateClasses}`}
+      className={`relative flex items-center justify-center ${TOGGLE_SIZE[scale]} rounded-full transition-colors ${stateClasses}`}
       aria-label="Broadcast"
     >
       <span className="relative inline-flex h-3 w-3 items-center justify-center">

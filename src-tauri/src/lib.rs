@@ -78,6 +78,7 @@ pub fn run() {
             commands::set_main_character,
             commands::set_profile_order,
             commands::set_orientation,
+            commands::set_overlay_scale,
             commands::set_shortcuts,
             commands::focus_character_at_index,
             commands::focus_next_character,
@@ -107,6 +108,7 @@ pub fn run() {
                     inner.main_character_id = cfg.main_character_id;
                     inner.profile_order = cfg.profile_order;
                     inner.orientation = cfg.orientation;
+                    inner.overlay_scale = cfg.overlay_scale;
                     inner.shortcuts = cfg.shortcuts;
                     inner.shortcuts.ensure_focus_char_slots();
                     let saved_size = match inner.orientation {

@@ -2,6 +2,8 @@ export type Role = "follower" | "ignored";
 
 export type Orientation = "horizontal" | "vertical";
 
+export type OverlayScale = "small" | "medium" | "large";
+
 export type SettingsTabId = "global" | "characters" | "shortcuts" | "about";
 
 export type MatchStrategy =
@@ -68,6 +70,7 @@ export interface StateSnapshot {
   main_character_id: string | null;
   profile_order: string[];
   orientation: Orientation;
+  overlay_scale: OverlayScale;
   overlay_sizes: OverlaySizes;
   settings_size: [number, number] | null;
   shortcuts: ShortcutBindings;

@@ -84,6 +84,15 @@ pub enum Orientation {
     Vertical,
 }
 
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum OverlayScale {
+    Small,
+    #[default]
+    Medium,
+    Large,
+}
+
 /// Persisted user-resized overlay dimensions, per orientation. Stored in
 /// logical pixels so the size is DPI-independent across reboots / monitor
 /// swaps. Each orientation's resize handle only adjusts the main axis
@@ -142,6 +151,7 @@ pub struct InnerState {
     pub main_character_id: Option<String>,
     pub profile_order: Vec<String>,
     pub orientation: Orientation,
+    pub overlay_scale: OverlayScale,
     pub shortcuts: ShortcutBindings,
     /// Runtime-only — never persisted. Guards against concurrent
     /// `check_for_update` invocations (user mashes the manual button while
@@ -170,6 +180,7 @@ impl Default for InnerState {
             main_character_id: None,
             profile_order: Vec::new(),
             orientation: Orientation::default(),
+            overlay_scale: OverlayScale::default(),
             shortcuts,
             update_check_in_flight: false,
             last_update_check: None,
@@ -324,6 +335,7 @@ pub struct StateSnapshot {
     pub main_character_id: Option<String>,
     pub profile_order: Vec<String>,
     pub orientation: Orientation,
+    pub overlay_scale: OverlayScale,
     pub overlay_sizes: OverlaySizes,
     pub settings_size: Option<(u32, u32)>,
     pub shortcuts: ShortcutBindings,
@@ -341,6 +353,7 @@ impl InnerState {
             main_character_id: self.main_character_id.clone(),
             profile_order: self.profile_order.clone(),
             orientation: self.orientation,
+            overlay_scale: self.overlay_scale,
             overlay_sizes: self.overlay_sizes,
             settings_size: self.settings_size,
             shortcuts: self.shortcuts.clone(),

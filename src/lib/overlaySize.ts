@@ -1,38 +1,86 @@
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { LogicalSize } from "@tauri-apps/api/window";
-import type { Orientation } from "../types";
+import type { Orientation, OverlayScale } from "../types";
 
-// =================== Layout constants ===================
+// =================== Scale presets ===================
 
-/// Locked inner-bar height in horizontal mode. Just enough for one chip
-/// (44px) plus padding so the focus ring (3px outset) doesn't clip.
-export const HORIZONTAL_BAR_HEIGHT = 64;
+/// Per-scale layout constants. Each preset scales the cross-axis of the
+/// bar (height in horizontal mode, width in vertical) plus the per-chip
+/// stride; the user-resizable main axis is unaffected by the preset.
+/// `chipSize + 12 (gap) = chipBlock` for every row, so adjusting one means
+/// adjusting both.
+export interface OverlayScalePreset {
+  /// Avatar chip and broadcast toggle pixel size.
+  chipSize: number;
+  /// Kebab menu button pixel size.
+  kebabSize: number;
+  /// Per-chip slot stride along the main axis (chip + gap).
+  chipBlock: number;
+  /// Locked inner-bar height in horizontal mode. Sized to fit one chip
+  /// plus padding so the focus ring (3px outset) doesn't clip.
+  horizontalBarHeight: number;
+  /// Locked inner-bar width in vertical mode. Chip column plus side
+  /// padding so the chip's focus ring renders fully.
+  verticalBarWidth: number;
+  /// Vertical overlay chrome height: hosts the kebab menu button and
+  /// serves as the top drag region.
+  verticalTopbarHeight: number;
+  /// Total non-chip width in horizontal mode: BroadcastToggle + left
+  /// divider + outer padding + right divider + kebab button. Added to
+  /// chip slots to compute the auto-fit width.
+  horizontalControlsWidth: number;
+  /// Vertical equivalent — total height taken by the controls cluster
+  /// (separator + broadcast) and outer padding in vertical mode.
+  verticalControlsHeight: number;
+  /// Auto-fit chip-area extent when no chips are imported, so the empty
+  /// state placeholder still has room at default size. The user can drag
+  /// the window smaller than this and the placeholder will clip.
+  horizontalEmptyMainAxis: number;
+  verticalEmptyMainAxis: number;
+}
 
-/// Locked inner-bar width in vertical mode. Chip column (44px) + side
-/// padding so the chip's focus ring renders fully.
-export const VERTICAL_BAR_WIDTH = 76;
+export const OVERLAY_SCALE_PRESETS: Record<OverlayScale, OverlayScalePreset> = {
+  small: {
+    chipSize: 36,
+    kebabSize: 28,
+    chipBlock: 48,
+    horizontalBarHeight: 52,
+    verticalBarWidth: 64,
+    verticalTopbarHeight: 36,
+    horizontalControlsWidth: 128,
+    verticalControlsHeight: 64,
+    horizontalEmptyMainAxis: 320,
+    verticalEmptyMainAxis: 200,
+  },
+  medium: {
+    chipSize: 44,
+    kebabSize: 32,
+    chipBlock: 56,
+    horizontalBarHeight: 64,
+    verticalBarWidth: 76,
+    verticalTopbarHeight: 44,
+    horizontalControlsWidth: 152,
+    verticalControlsHeight: 76,
+    horizontalEmptyMainAxis: 360,
+    verticalEmptyMainAxis: 240,
+  },
+  large: {
+    chipSize: 52,
+    kebabSize: 40,
+    chipBlock: 64,
+    horizontalBarHeight: 76,
+    verticalBarWidth: 88,
+    verticalTopbarHeight: 52,
+    horizontalControlsWidth: 176,
+    verticalControlsHeight: 88,
+    horizontalEmptyMainAxis: 400,
+    verticalEmptyMainAxis: 280,
+  },
+};
 
-/// Vertical overlay chrome height: hosts the kebab menu button and
-/// serves as the top drag region.
-export const VERTICAL_TOPBAR_HEIGHT = 44;
-
-/// Per-chip slot in the avatar bar (chip 44px + gap 12px).
-const CHIP_BLOCK = 56;
-
-/// Total non-chip width in horizontal mode: BroadcastToggle (44px) +
-/// left divider + outer padding + right divider + kebab button (44px).
-/// Added to chip slots to compute the auto-fit width.
-const HORIZONTAL_CONTROLS_WIDTH = 152;
-
-/// Vertical equivalent — total height taken by the controls cluster
-/// (separator + broadcast) and outer padding in vertical mode.
-const VERTICAL_CONTROLS_HEIGHT = 76;
-
-/// Auto-fit chip-area extent when no chips are imported, so the empty-
-/// state placeholder still has room at default size. The user can drag
-/// the window smaller than this and the placeholder will clip.
-const HORIZONTAL_EMPTY_MAIN_AXIS = 360;
-const VERTICAL_EMPTY_MAIN_AXIS = 240;
+export function presetOf(scale: OverlayScale): OverlayScalePreset {
+  return OVERLAY_SCALE_PRESETS[scale];
+}
 
 // =================== Settings view ===================
 
@@ -65,6 +113,7 @@ export function isValidSettingsSize(s: [number, number] | null): boolean {
 /// saved yet the overlay auto-fits the imported chip count.
 export interface OverlaySizeArgs {
   orientation: Orientation;
+  scale: OverlayScale;
   visibleCount: number;
   /// Saved main-axis value for this orientation (width in horizontal,
   /// height in vertical), or `null` to use the auto-fit default.
@@ -75,21 +124,22 @@ export function computeOverlaySize(args: OverlaySizeArgs): {
   width: number;
   height: number;
 } {
+  const p = presetOf(args.scale);
   const count = args.visibleCount;
   if (args.orientation === "horizontal") {
-    const chipsAxis = count > 0 ? count * CHIP_BLOCK : HORIZONTAL_EMPTY_MAIN_AXIS;
-    const min = computeOverlayMinSize("horizontal");
+    const chipsAxis = count > 0 ? count * p.chipBlock : p.horizontalEmptyMainAxis;
+    const min = computeOverlayMinSize("horizontal", args.scale);
     return {
-      width: Math.max(args.savedMainAxis ?? HORIZONTAL_CONTROLS_WIDTH + chipsAxis, min.width),
-      height: HORIZONTAL_BAR_HEIGHT,
+      width: Math.max(args.savedMainAxis ?? p.horizontalControlsWidth + chipsAxis, min.width),
+      height: p.horizontalBarHeight,
     };
   }
-  const chipsAxis = count > 0 ? count * CHIP_BLOCK : VERTICAL_EMPTY_MAIN_AXIS;
-  const min = computeOverlayMinSize("vertical");
+  const chipsAxis = count > 0 ? count * p.chipBlock : p.verticalEmptyMainAxis;
+  const min = computeOverlayMinSize("vertical", args.scale);
   return {
-    width: VERTICAL_BAR_WIDTH,
+    width: p.verticalBarWidth,
     height: Math.max(
-      args.savedMainAxis ?? VERTICAL_TOPBAR_HEIGHT + VERTICAL_CONTROLS_HEIGHT + chipsAxis,
+      args.savedMainAxis ?? p.verticalTopbarHeight + p.verticalControlsHeight + chipsAxis,
       min.height,
     ),
   };
@@ -100,19 +150,23 @@ export function computeOverlaySize(args: OverlaySizeArgs): {
 /// The chip area itself is allowed to fully collapse: shrunk past this
 /// floor, chips clip but the broadcast/window-buttons cluster stays in
 /// frame.
-export function computeOverlayMinSize(orientation: Orientation): {
+export function computeOverlayMinSize(
+  orientation: Orientation,
+  scale: OverlayScale,
+): {
   width: number;
   height: number;
 } {
+  const p = presetOf(scale);
   if (orientation === "horizontal") {
     return {
-      width: HORIZONTAL_CONTROLS_WIDTH,
-      height: HORIZONTAL_BAR_HEIGHT,
+      width: p.horizontalControlsWidth,
+      height: p.horizontalBarHeight,
     };
   }
   return {
-    width: VERTICAL_BAR_WIDTH,
-    height: VERTICAL_TOPBAR_HEIGHT + VERTICAL_CONTROLS_HEIGHT,
+    width: p.verticalBarWidth,
+    height: p.verticalTopbarHeight + p.verticalControlsHeight,
   };
 }
 

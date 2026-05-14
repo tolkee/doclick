@@ -17,11 +17,7 @@ import {
   onUpdateState,
   onWindowsChanged,
 } from "./ipc/events";
-import {
-  computeOverlayMinSize,
-  computeOverlaySize,
-  HORIZONTAL_BAR_HEIGHT,
-} from "./lib/overlaySize";
+import { computeOverlayMinSize, computeOverlaySize, presetOf } from "./lib/overlaySize";
 import { useDoclickStore } from "./store/useDoclickStore";
 import type { Orientation } from "./types";
 
@@ -83,6 +79,7 @@ export default function App() {
   }, [hydrate]);
 
   const orientation = useDoclickStore((s) => s.orientation);
+  const overlayScale = useDoclickStore((s) => s.overlayScale);
   const overlaySizes = useDoclickStore((s) => s.overlaySizes);
   const hydrated = useDoclickStore((s) => s.hydrated);
   const visibleCount = useDoclickStore((s) => s.windows.filter((w) => w.profile != null).length);
@@ -98,10 +95,11 @@ export default function App() {
       try {
         const size = computeOverlaySize({
           orientation,
+          scale: overlayScale,
           visibleCount,
           savedMainAxis: savedMainAxis(overlaySizes, orientation),
         });
-        const min = computeOverlayMinSize(orientation);
+        const min = computeOverlayMinSize(orientation, overlayScale);
         await win.setMinSize(new LogicalSize(min.width, min.height));
         await win.setSize(new LogicalSize(size.width, size.height));
         await win.setResizable(false);
@@ -109,7 +107,7 @@ export default function App() {
         console.warn("apply overlay size failed", err);
       }
     })();
-  }, [hydrated, orientation, visibleCount, overlaySizes]);
+  }, [hydrated, orientation, overlayScale, visibleCount, overlaySizes]);
 
   const openCharacters = () => {
     openSettings("characters").catch(() => {});
@@ -148,7 +146,7 @@ export default function App() {
       <div
         data-tauri-drag-region
         className="relative flex items-center gap-2 w-full px-3"
-        style={{ height: HORIZONTAL_BAR_HEIGHT }}
+        style={{ height: presetOf(overlayScale).horizontalBarHeight }}
       >
         <BroadcastToggle />
         <div className="w-px h-8 bg-border/60 mx-1" />

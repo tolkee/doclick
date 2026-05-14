@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 
 use crate::state::{
-    default_broadcast_keys, CharacterProfile, InnerState, Orientation, OverlaySizes,
+    default_broadcast_keys, CharacterProfile, InnerState, Orientation, OverlayScale, OverlaySizes,
     ShortcutBindings,
 };
 
@@ -32,6 +32,8 @@ pub struct PersistedConfig {
     #[serde(default)]
     pub orientation: Orientation,
     #[serde(default)]
+    pub overlay_scale: OverlayScale,
+    #[serde(default)]
     pub shortcuts: ShortcutBindings,
 }
 
@@ -55,6 +57,7 @@ impl Default for PersistedConfig {
             main_character_id: None,
             profile_order: Vec::new(),
             orientation: Orientation::default(),
+            overlay_scale: OverlayScale::default(),
             shortcuts,
         }
     }
@@ -74,6 +77,7 @@ impl PersistedConfig {
             main_character_id: inner.main_character_id.clone(),
             profile_order: inner.profile_order.clone(),
             orientation: inner.orientation,
+            overlay_scale: inner.overlay_scale,
             shortcuts: inner.shortcuts.clone(),
         }
     }
