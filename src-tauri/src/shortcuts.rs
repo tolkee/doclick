@@ -254,7 +254,7 @@ pub fn run_action(app: &AppHandle, action: ShortcutAction) {
             app_handle.exit(0);
         }
         ShortcutAction::CloseAll => {
-            crate::windows::close::close_dofus_and_companion_windows();
+            crate::windows::close::close_external_app_windows();
             let _ = commands::persist(&app_handle, state.inner());
             // Hard-exit: `app_handle.exit(0)` from the global-hotkey thread
             // was observed to leave Doclick running after the other windows
