@@ -24,6 +24,8 @@ pub struct PersistedConfig {
     #[serde(default)]
     pub settings_size: Option<(u32, u32)>,
     #[serde(default)]
+    pub settings_position: Option<(i32, i32)>,
+    #[serde(default)]
     pub main_character_id: Option<String>,
     #[serde(default)]
     pub profile_order: Vec<String>,
@@ -51,6 +53,7 @@ impl Default for PersistedConfig {
             overlay_position: None,
             overlay_sizes: OverlaySizes::default(),
             settings_size: None,
+            settings_position: None,
             main_character_id: None,
             profile_order: Vec::new(),
             orientation: Orientation::default(),
@@ -70,6 +73,7 @@ impl PersistedConfig {
             overlay_position: inner.overlay_position,
             overlay_sizes: inner.overlay_sizes,
             settings_size: inner.settings_size,
+            settings_position: inner.settings_position,
             main_character_id: inner.main_character_id.clone(),
             profile_order: inner.profile_order.clone(),
             orientation: inner.orientation,

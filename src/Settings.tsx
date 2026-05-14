@@ -1,12 +1,17 @@
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useEffect, useState } from "react";
+import { ResizeHandles } from "./components/ResizeHandles";
 import { TitleBar } from "./components/TitleBar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs";
+import { saveSettingsPosition } from "./ipc/commands";
+import { onOpenSettings } from "./ipc/events";
+import { isValidSettingsSize } from "./lib/overlaySize";
 import { AboutTab } from "./Settings/AboutTab";
 import { CharactersTab } from "./Settings/CharactersTab";
 import { GlobalTab } from "./Settings/GlobalTab";
 import { ShortcutsTab } from "./Settings/ShortcutsTab";
-
-export type SettingsTabId = "global" | "characters" | "shortcuts" | "about";
+import { useDoclickStore } from "./store/useDoclickStore";
+import type { SettingsTabId } from "./types";
 
 const TABS: { id: SettingsTabId; label: string }[] = [
   { id: "global", label: "Général" },
@@ -15,21 +20,76 @@ const TABS: { id: SettingsTabId; label: string }[] = [
   { id: "about", label: "À propos" },
 ];
 
-interface Props {
-  onBack: () => void;
-  initialTab?: SettingsTabId;
-}
+export default function Settings() {
+  const hydrate = useDoclickStore((s) => s.hydrate);
+  const [tab, setTab] = useState<SettingsTabId>("global");
 
-export default function Settings({ onBack, initialTab = "global" }: Props) {
-  const [tab, setTab] = useState<SettingsTabId>(initialTab);
-
+  // The settings window has its own React tree and its own store, so it
+  // must hydrate from the Rust snapshot independently of the overlay.
   useEffect(() => {
-    setTab(initialTab);
-  }, [initialTab]);
+    hydrate();
+  }, [hydrate]);
+
+  // Switch tab whenever the Rust side asks us to open with a specific tab
+  // (e.g. AvatarBar's "Personnages" CTA → openSettings("characters")).
+  useEffect(() => {
+    const offP = onOpenSettings((p) => {
+      if (p.tab) setTab(p.tab);
+    });
+    return () => {
+      offP.then((off) => off()).catch(() => {});
+    };
+  }, []);
+
+  // Persist user-resized window size. `onResized` also fires for
+  // programmatic setSize from the Rust setup path, so we debounce + dedup
+  // to avoid loops. Rejects sizes below SETTINGS_MIN_SIZE (poisoned cache
+  // from earlier builds occasionally persisted overlay dimensions here).
+  useEffect(() => {
+    const win = getCurrentWindow();
+    let timer: number | null = null;
+    const offP = win.onResized(({ payload }) => {
+      if (timer !== null) window.clearTimeout(timer);
+      timer = window.setTimeout(async () => {
+        try {
+          const factor = await win.scaleFactor();
+          const w = Math.round(payload.width / factor);
+          const h = Math.round(payload.height / factor);
+          if (!isValidSettingsSize([w, h])) return;
+          const cur = useDoclickStore.getState().settingsSize;
+          if (cur && cur[0] === w && cur[1] === h) return;
+          await useDoclickStore.getState().saveSettingsSize(w, h);
+        } catch {}
+      }, 250);
+    });
+    return () => {
+      offP.then((off) => off()).catch(() => {});
+      if (timer !== null) window.clearTimeout(timer);
+    };
+  }, []);
+
+  // Persist user-moved window position (debounced, ignoring the Win32
+  // minimized sentinel so a stray -32000 doesn't spawn the window
+  // offscreen on next launch).
+  useEffect(() => {
+    const win = getCurrentWindow();
+    let timer: number | null = null;
+    const offP = win.onMoved(({ payload }) => {
+      if (payload.x <= -32000 || payload.y <= -32000) return;
+      if (timer !== null) window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        saveSettingsPosition(payload.x, payload.y).catch(() => {});
+      }, 400);
+    });
+    return () => {
+      offP.then((off) => off()).catch(() => {});
+      if (timer !== null) window.clearTimeout(timer);
+    };
+  }, []);
 
   return (
     <main className="flex h-screen flex-col select-text overflow-hidden rounded-xl border border-border/50 bg-background text-foreground shadow-2xl">
-      <TitleBar title="Doclick" onBack={onBack} />
+      <TitleBar title="Doclick" />
       <Tabs
         value={tab}
         onValueChange={(v) => setTab(v as SettingsTabId)}
@@ -59,6 +119,7 @@ export default function Settings({ onBack, initialTab = "global" }: Props) {
           </TabsContent>
         </section>
       </Tabs>
+      <ResizeHandles mode="settings" />
     </main>
   );
 }

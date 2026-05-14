@@ -43,9 +43,19 @@ pub fn run() {
         )
         .plugin(tauri_plugin_updater::Builder::new().build())
         .on_window_event(|window, event| {
-            // Closing the window from its custom TitleBar quits the app.
-            if let tauri::WindowEvent::CloseRequested { .. } = event {
-                window.app_handle().exit(0);
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                match window.label() {
+                    // Hiding (vs closing) preserves the settings webview's tab
+                    // and scroll state so re-opens are instant and don't lose
+                    // user position.
+                    "settings" => {
+                        api.prevent_close();
+                        let _ = window.hide();
+                    }
+                    // Overlay close (via the kebab "Fermer" item) tears down
+                    // the whole app — including the settings window.
+                    _ => window.app_handle().exit(0),
+                }
             }
         })
         .manage(app_state.clone())
@@ -63,6 +73,8 @@ pub fn run() {
             commands::save_overlay_position,
             commands::save_overlay_size,
             commands::save_settings_size,
+            commands::save_settings_position,
+            commands::open_settings,
             commands::set_main_character,
             commands::set_profile_order,
             commands::set_orientation,
@@ -78,33 +90,40 @@ pub fn run() {
         .setup(move |app| {
             let handle = app.handle().clone();
 
-            let (saved_position, saved_size) = if let Ok(dir) = handle.path().app_data_dir() {
-                diagnostics::set_crash_dir(dir.clone());
-                let cfg = config::load(&dir);
-                let mut inner = app_state.write();
-                inner.profiles = cfg.profiles;
-                if !cfg.broadcast_keys.is_empty() {
-                    inner.broadcast_keys = cfg.broadcast_keys;
-                }
-                inner.panic_hotkey = cfg.panic_hotkey;
-                inner.pvp_warning_acknowledged = cfg.pvp_warning_acknowledged;
-                inner.overlay_position = cfg.overlay_position;
-                inner.overlay_sizes = cfg.overlay_sizes;
-                inner.settings_size = cfg.settings_size;
-                inner.main_character_id = cfg.main_character_id;
-                inner.profile_order = cfg.profile_order;
-                inner.orientation = cfg.orientation;
-                inner.overlay_scale = cfg.overlay_scale;
-                inner.shortcuts = cfg.shortcuts;
-                inner.shortcuts.ensure_focus_char_slots();
-                let saved_size = match inner.orientation {
-                    Orientation::Horizontal => inner.overlay_sizes.horizontal,
-                    Orientation::Vertical => inner.overlay_sizes.vertical,
+            let (saved_position, saved_size, saved_settings_size, saved_settings_position) =
+                if let Ok(dir) = handle.path().app_data_dir() {
+                    diagnostics::set_crash_dir(dir.clone());
+                    let cfg = config::load(&dir);
+                    let mut inner = app_state.write();
+                    inner.profiles = cfg.profiles;
+                    if !cfg.broadcast_keys.is_empty() {
+                        inner.broadcast_keys = cfg.broadcast_keys;
+                    }
+                    inner.panic_hotkey = cfg.panic_hotkey;
+                    inner.pvp_warning_acknowledged = cfg.pvp_warning_acknowledged;
+                    inner.overlay_position = cfg.overlay_position;
+                    inner.overlay_sizes = cfg.overlay_sizes;
+                    inner.settings_size = cfg.settings_size;
+                    inner.settings_position = cfg.settings_position;
+                    inner.main_character_id = cfg.main_character_id;
+                    inner.profile_order = cfg.profile_order;
+                    inner.orientation = cfg.orientation;
+                    inner.overlay_scale = cfg.overlay_scale;
+                    inner.shortcuts = cfg.shortcuts;
+                    inner.shortcuts.ensure_focus_char_slots();
+                    let saved_size = match inner.orientation {
+                        Orientation::Horizontal => inner.overlay_sizes.horizontal,
+                        Orientation::Vertical => inner.overlay_sizes.vertical,
+                    };
+                    (
+                        cfg.overlay_position,
+                        saved_size,
+                        cfg.settings_size,
+                        cfg.settings_position,
+                    )
+                } else {
+                    (None, None, None, None)
                 };
-                (cfg.overlay_position, saved_size)
-            } else {
-                (None, None)
-            };
 
             // Restore overlay position + size if previously saved, then show
             // the window. The overlay starts hidden in tauri.conf.json so the
@@ -122,6 +141,28 @@ pub fn run() {
                     let _ = overlay.set_size(tauri::LogicalSize::new(w, h));
                 }
                 let _ = overlay.show();
+            }
+
+            // Pre-apply the persisted settings size and position so the
+            // first `open_settings` paints where the user left it. If no
+            // position is persisted, fall back to centering — the conf
+            // also has `center: true`, but on hide/show Tauri preserves
+            // the last position, so a saved-then-cleared run would
+            // otherwise stick at (0,0).
+            if let Some(settings) = handle.get_webview_window("settings") {
+                if let Some((w, h)) = saved_settings_size {
+                    let _ = settings.set_size(tauri::LogicalSize::new(w, h));
+                }
+                match saved_settings_position {
+                    // -32000 is the Win32 minimized sentinel — skip restoring
+                    // such a position so we don't spawn offscreen.
+                    Some((x, y)) if x > -32000 && y > -32000 => {
+                        let _ = settings.set_position(tauri::PhysicalPosition::new(x, y));
+                    }
+                    _ => {
+                        let _ = settings.center();
+                    }
+                }
             }
 
             // Hook thread (low-level mouse + keyboard).

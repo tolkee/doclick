@@ -50,6 +50,26 @@
         "height": 96,
         "x": 0,
         "y": 0
+      },
+      {
+        "label": "settings",
+        "title": "Doclick",
+        "url": "index.html",
+        "alwaysOnTop": true,
+        "decorations": false,
+        "transparent": true,
+        "skipTaskbar": true,
+        "resizable": true,
+        "minimizable": true,
+        "maximizable": true,
+        "closable": true,
+        "shadow": true,
+        "focus": true,
+        "acceptFirstMouse": true,
+        "visible": false,
+        "center": true,
+        "width": 440,
+        "height": 720
       }
     ],
     "security": {

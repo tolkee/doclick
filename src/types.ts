@@ -4,6 +4,8 @@ export type Orientation = "horizontal" | "vertical";
 
 export type OverlayScale = "small" | "medium" | "large";
 
+export type SettingsTabId = "global" | "characters" | "shortcuts" | "about";
+
 export type MatchStrategy =
   | { kind: "WindowTitleContains"; value: string }
   | { kind: "Pid"; value: number };

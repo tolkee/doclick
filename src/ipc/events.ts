@@ -4,10 +4,13 @@ import type {
   BroadcastTickPayload,
   ErrorPayload,
   FocusedWindowChangedPayload,
+  SettingsTabId,
   UpdateProgressPayload,
   UpdateStatePayload,
   WindowsChangedPayload,
 } from "../types";
+
+export type OpenSettingsPayload = { tab: SettingsTabId | null };
 
 export const EVT_WINDOWS_CHANGED = "windows-changed";
 export const EVT_BROADCAST_STATE = "broadcast-state-changed";
@@ -36,8 +39,8 @@ export const onBroadcastTick = (cb: (p: BroadcastTickPayload) => void): Promise<
 export const onError = (cb: (p: ErrorPayload) => void): Promise<UnlistenFn> =>
   listen<ErrorPayload>(EVT_ERROR, (e) => cb(e.payload));
 
-export const onOpenSettings = (cb: () => void): Promise<UnlistenFn> =>
-  listen<void>(EVT_OPEN_SETTINGS, () => cb());
+export const onOpenSettings = (cb: (p: OpenSettingsPayload) => void): Promise<UnlistenFn> =>
+  listen<OpenSettingsPayload>(EVT_OPEN_SETTINGS, (e) => cb(e.payload ?? { tab: null }));
 
 export const onPrefsChanged = (cb: () => void): Promise<UnlistenFn> =>
   listen<void>(EVT_PREFS_CHANGED, () => cb());

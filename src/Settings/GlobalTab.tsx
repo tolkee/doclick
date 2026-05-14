@@ -1,9 +1,8 @@
 import { ArrowRight } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
-import type { SettingsTabId } from "../Settings";
 import { useDoclickStore } from "../store/useDoclickStore";
-import type { Orientation, OverlayScale } from "../types";
+import type { Orientation, OverlayScale, SettingsTabId } from "../types";
 
 interface Props {
   onNavigate: (tab: SettingsTabId) => void;

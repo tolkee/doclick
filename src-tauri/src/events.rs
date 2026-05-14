@@ -43,6 +43,14 @@ pub struct ErrorPayload {
     pub context: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct OpenSettingsPayload {
+    /// One of "global" | "characters" | "shortcuts" | "about". `None` means
+    /// the settings window keeps its current tab (or defaults to "global"
+    /// on first open).
+    pub tab: Option<String>,
+}
+
 /// Emitted to the frontend via `EVT_UPDATE_STATE`. The TS store has an
 /// extra `"idle"` initial state; Rust never emits it (the backend only
 /// reports transitions). Keep the lowercase serde tags in sync with the
