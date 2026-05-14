@@ -6,7 +6,7 @@ const GLOBAL_ROWS: { key: keyof Omit<ShortcutBindings, "focus_char">; label: str
   { key: "toggle_broadcast", label: "Activer/désactiver le broadcast" },
   { key: "open_settings", label: "Ouvrir les paramètres" },
   { key: "close_app", label: "Fermer l'application" },
-  { key: "close_all", label: "Tout fermer (Dofus, Ganymède, Doclick)" },
+  { key: "close_all", label: "Tout fermer (Dofus, Ganymède, Ankama Launcher, Doclick)" },
   { key: "send_travel_command", label: "Envoyer /travel du presse-papiers" },
 ];
 

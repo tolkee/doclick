@@ -7,11 +7,17 @@ use windows::Win32::UI::WindowsAndMessaging::{
 use crate::windows::enumerate::{process_basename, DOFUS_PROCESS_NAMES};
 use crate::windows::focus::COMPANION_PROCESS_NAMES;
 
-/// Post WM_CLOSE to every visible top-level window owned by a Dofus or
-/// Ganymede process. Fire-and-forget: receiving processes run their own
-/// shutdown (logout prompts, save dialogs) on their own schedule, and we
-/// don't wait. Caller is expected to exit Doclick immediately after.
-pub fn close_dofus_and_companion_windows() {
+/// Process basenames for the Ankama Launcher. Targeted by the "tout fermer"
+/// shortcut alongside Dofus / Ganymede so a single keystroke leaves the user
+/// with no Ankama-stack windows still running.
+const LAUNCHER_PROCESS_NAMES: &[&str] = &["Ankama Launcher.exe"];
+
+/// Post WM_CLOSE to every visible top-level window owned by a Dofus,
+/// Ganymede, or Ankama Launcher process. Fire-and-forget: receiving
+/// processes run their own shutdown (logout prompts, save dialogs) on their
+/// own schedule, and we don't wait. Caller is expected to exit Doclick
+/// immediately after.
+pub fn close_external_app_windows() {
     unsafe {
         let _ = EnumWindows(Some(enum_proc), LPARAM(0));
     }
@@ -36,6 +42,7 @@ unsafe extern "system" fn enum_proc(hwnd: HWND, _lparam: LPARAM) -> BOOL {
     let is_target = DOFUS_PROCESS_NAMES
         .iter()
         .chain(COMPANION_PROCESS_NAMES.iter())
+        .chain(LAUNCHER_PROCESS_NAMES.iter())
         .any(|n| n.eq_ignore_ascii_case(&exe));
 
     if is_target {
