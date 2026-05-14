@@ -3,11 +3,23 @@ import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { getCurrentWindow, LogicalPosition } from "@tauri-apps/api/window";
 import { MoreVertical } from "lucide-react";
 import { useRef } from "react";
+import { cn } from "../lib/utils";
 import { useDoclickStore } from "../store/useDoclickStore";
+import type { OverlayScale } from "../types";
 import { Button } from "./ui/button";
 
 const MENU_WIDTH = 160;
 const MENU_GAP = 4;
+
+/// Kebab is intentionally smaller than the avatar/broadcast to preserve
+/// the visual hierarchy at every preset. Sizes (28/32/40) match the
+/// kebabSize field in OVERLAY_SCALE_PRESETS. The `[&_svg...]:size-X`
+/// suffix scales the lucide icon inside to keep its proportion.
+const KEBAB_CLASS: Record<OverlayScale, string> = {
+  small: "size-7 [&_svg:not([class*='size-'])]:size-3.5",
+  medium: "size-8 [&_svg:not([class*='size-'])]:size-4",
+  large: "size-10 [&_svg:not([class*='size-'])]:size-5",
+};
 
 /// Module-level mirror of the menu window's visibility, kept in sync via
 /// the events the Menu component emits on show/hide. Lets the kebab
@@ -50,6 +62,7 @@ export function KebabButton({ anchor, ariaLabel = "Menu" }: Props) {
       s.updateState === "downloading" ||
       s.updateState === "installing",
   );
+  const scale = useDoclickStore((s) => s.overlayScale);
 
   const open = async () => {
     if (wasVisibleAtMousedown.current) return;
@@ -94,7 +107,7 @@ export function KebabButton({ anchor, ariaLabel = "Menu" }: Props) {
         wasVisibleAtMousedown.current = menuVisible;
       }}
       onClick={open}
-      className="relative"
+      className={cn("relative", KEBAB_CLASS[scale])}
     >
       <MoreVertical strokeWidth={2} />
       {updateAvailable && (

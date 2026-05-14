@@ -198,7 +198,8 @@ function Handle({
 
 function minSizeFor(mode: ResizeMode): { width: number; height: number } {
   if (mode === "settings") return SETTINGS_MIN_SIZE;
-  return computeOverlayMinSize(mode === "overlay-horizontal" ? "horizontal" : "vertical");
+  const scale = useDoclickStore.getState().overlayScale;
+  return computeOverlayMinSize(mode === "overlay-horizontal" ? "horizontal" : "vertical", scale);
 }
 
 function persistFinalSize(mode: ResizeMode, width: number, height: number) {

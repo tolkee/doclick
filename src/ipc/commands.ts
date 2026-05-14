@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type {
   CharacterProfile,
   Orientation,
+  OverlayScale,
   ShortcutBindings,
   StateSnapshot,
   WindowEntry,
@@ -45,6 +46,9 @@ export const setProfileOrder = (ids: string[]) => invoke<void>("set_profile_orde
 
 export const setOrientation = (orientation: Orientation) =>
   invoke<void>("set_orientation", { orientation });
+
+export const setOverlayScale = (scale: OverlayScale) =>
+  invoke<void>("set_overlay_scale", { scale });
 
 export const setShortcuts = (shortcuts: ShortcutBindings) =>
   invoke<void>("set_shortcuts", { shortcuts });

@@ -15,8 +15,8 @@ use crate::events::{
     EVT_UPDATE_STATE, EVT_WINDOWS_CHANGED,
 };
 use crate::state::{
-    AppState, BroadcastReason, CharacterProfile, Orientation, ShortcutBindings, StateSnapshot,
-    WindowEntry,
+    AppState, BroadcastReason, CharacterProfile, Orientation, OverlayScale, ShortcutBindings,
+    StateSnapshot, WindowEntry,
 };
 use crate::windows::focus::focus_window;
 
@@ -276,6 +276,24 @@ pub fn set_orientation(
         other => return Err(CmdError::Invalid(format!("orientation={other}"))),
     };
     state.write().orientation = parsed;
+    persist(&app, &state)?;
+    emit_prefs_changed(&app);
+    Ok(())
+}
+
+#[tauri::command]
+pub fn set_overlay_scale(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    scale: String,
+) -> Result<(), CmdError> {
+    let parsed = match scale.as_str() {
+        "small" => OverlayScale::Small,
+        "medium" => OverlayScale::Medium,
+        "large" => OverlayScale::Large,
+        other => return Err(CmdError::Invalid(format!("scale={other}"))),
+    };
+    state.write().overlay_scale = parsed;
     persist(&app, &state)?;
     emit_prefs_changed(&app);
     Ok(())

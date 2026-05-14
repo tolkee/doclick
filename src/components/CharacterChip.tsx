@@ -1,16 +1,26 @@
 import { avatarUrlFor, classDisplayName } from "../lib/dofusClass";
 import { useDoclickStore } from "../store/useDoclickStore";
-import type { WindowEntry } from "../types";
+import type { OverlayScale, WindowEntry } from "../types";
 import { Crown } from "./Crown";
 
 interface Props {
   entry: WindowEntry;
 }
 
+/// Tailwind class strings must appear literally in source so the
+/// Tailwind 4 purger picks them up — keep both the size-X form (small,
+/// medium) and the arbitrary form (large) as literal strings.
+const CHIP_SIZE: Record<OverlayScale, string> = {
+  small: "w-9 h-9",
+  medium: "w-11 h-11",
+  large: "w-[52px] h-[52px]",
+};
+
 export function CharacterChip({ entry }: Props) {
   const focusWindow = useDoclickStore((s) => s.focusWindow);
   const mainId = useDoclickStore((s) => s.mainCharacterId);
   const focusedHwnd = useDoclickStore((s) => s.focusedHwnd);
+  const scale = useDoclickStore((s) => s.overlayScale);
 
   const profile = entry.profile;
   const name = profile?.display_name ?? entry.character_name ?? entry.title.slice(0, 24);
@@ -33,7 +43,7 @@ export function CharacterChip({ entry }: Props) {
       title={`${name}${className ? ` — ${className}` : ""}\n${entry.title}`}
     >
       <div
-        className={`relative w-11 h-11 rounded-full overflow-hidden bg-zinc-700 flex items-center justify-center text-xs font-semibold text-zinc-200 ${avatarRing}`}
+        className={`relative ${CHIP_SIZE[scale]} rounded-full overflow-hidden bg-zinc-700 flex items-center justify-center text-xs font-semibold text-zinc-200 ${avatarRing}`}
       >
         {avatarSrc ? (
           <img

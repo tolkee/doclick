@@ -21,8 +21,8 @@ import {
 import {
   computeOverlayMinSize,
   computeOverlaySize,
-  HORIZONTAL_BAR_HEIGHT,
   isValidSettingsSize,
+  presetOf,
   SETTINGS_DEFAULT_SIZE,
   SETTINGS_MIN_SIZE,
 } from "./lib/overlaySize";
@@ -81,10 +81,12 @@ export default function App() {
     const win = getCurrentWindow();
     const state = useDoclickStore.getState();
     const orientation = state.orientation;
+    const scale = state.overlayScale;
     const visibleCount = state.windows.filter((w) => w.profile != null).length;
-    const min = computeOverlayMinSize(orientation);
+    const min = computeOverlayMinSize(orientation, scale);
     const size = computeOverlaySize({
       orientation,
+      scale,
       visibleCount,
       savedMainAxis: savedMainAxis(state.overlaySizes, orientation),
     });
@@ -157,6 +159,7 @@ export default function App() {
   }, [hydrate, enterSettings]);
 
   const orientation = useDoclickStore((s) => s.orientation);
+  const overlayScale = useDoclickStore((s) => s.overlayScale);
   const overlaySizes = useDoclickStore((s) => s.overlaySizes);
   const hydrated = useDoclickStore((s) => s.hydrated);
   const visibleCount = useDoclickStore((s) => s.windows.filter((w) => w.profile != null).length);
@@ -175,10 +178,11 @@ export default function App() {
       try {
         const size = computeOverlaySize({
           orientation,
+          scale: overlayScale,
           visibleCount,
           savedMainAxis: savedMainAxis(overlaySizes, orientation),
         });
-        const min = computeOverlayMinSize(orientation);
+        const min = computeOverlayMinSize(orientation, overlayScale);
         await win.setMinSize(new LogicalSize(min.width, min.height));
         await win.setSize(new LogicalSize(size.width, size.height));
         await win.setResizable(false);
@@ -186,7 +190,7 @@ export default function App() {
         console.warn("apply overlay size failed", err);
       }
     })();
-  }, [hydrated, view, orientation, visibleCount, overlaySizes]);
+  }, [hydrated, view, orientation, overlayScale, visibleCount, overlaySizes]);
 
   // Persist the settings window size while the user is in settings
   // view. `onResized` fires for *any* size change — custom handle
@@ -269,7 +273,7 @@ export default function App() {
       <div
         data-tauri-drag-region
         className="relative flex items-center gap-2 w-full px-3"
-        style={{ height: HORIZONTAL_BAR_HEIGHT }}
+        style={{ height: presetOf(overlayScale).horizontalBarHeight }}
       >
         <BroadcastToggle />
         <div className="w-px h-8 bg-border/60 mx-1" />
