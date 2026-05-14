@@ -143,8 +143,14 @@ export default function App() {
 
   return (
     <div className="relative flex h-screen w-screen flex-col overflow-hidden rounded-xl border border-border/50 bg-background shadow-2xl">
+      {/* `deep` so clicks anywhere in the subtree (separators, AvatarBar
+          wrapper, empty-state text) initiate window drag. A bare
+          `data-tauri-drag-region` would only fire on direct hits to this
+          element, leaving the centered avatar zone non-draggable.
+          Chips/BroadcastToggle/KebabButton each carry
+          `data-tauri-drag-region="false"` to opt out. */}
       <div
-        data-tauri-drag-region
+        data-tauri-drag-region="deep"
         className="relative flex items-center gap-2 w-full px-3"
         style={{ height: presetOf(overlayScale).horizontalBarHeight }}
       >
