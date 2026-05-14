@@ -80,16 +80,20 @@ export default function App() {
 
   const orientation = useDoclickStore((s) => s.orientation);
   const overlayScale = useDoclickStore((s) => s.overlayScale);
-  const overlaySizes = useDoclickStore((s) => s.overlaySizes);
   const hydrated = useDoclickStore((s) => s.hydrated);
   const visibleCount = useDoclickStore((s) => s.windows.filter((w) => w.profile != null).length);
 
   // Apply the overlay size when its derivation inputs change (orientation
-  // toggle, chip count change, saved-size updates). The settings window
-  // is a separate Tauri window now, so this effect doesn't need a view
-  // guard — App.tsx only ever mounts in the overlay window.
+  // toggle, scale change, chip count change, hydration). The saved size
+  // is read inside the effect via `getState()` rather than declared as a
+  // dep on purpose: the user's own resize drives `overlaySizes` updates
+  // from ResizeHandles, and re-firing this effect for those would
+  // overwrite the user's drag with whatever `overlaySizes` looked like in
+  // the captured closure — which, during the startup window-watcher tick
+  // race, is the *old* value, snapping the window back to its prior size.
   useEffect(() => {
     if (!hydrated) return;
+    const sizes = useDoclickStore.getState().overlaySizes;
     const win = getCurrentWindow();
     (async () => {
       try {
@@ -97,7 +101,7 @@ export default function App() {
           orientation,
           scale: overlayScale,
           visibleCount,
-          savedMainAxis: savedMainAxis(overlaySizes, orientation),
+          savedMainAxis: savedMainAxis(sizes, orientation),
         });
         const min = computeOverlayMinSize(orientation, overlayScale);
         await win.setMinSize(new LogicalSize(min.width, min.height));
@@ -107,7 +111,7 @@ export default function App() {
         console.warn("apply overlay size failed", err);
       }
     })();
-  }, [hydrated, orientation, overlayScale, visibleCount, overlaySizes]);
+  }, [hydrated, orientation, overlayScale, visibleCount]);
 
   const openCharacters = () => {
     openSettings("characters").catch(() => {});
