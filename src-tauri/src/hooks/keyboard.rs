@@ -27,9 +27,7 @@ pub unsafe extern "system" fn ll_kbd_proc(
                 // broadcasting Ctrl+C would replicate "copy" across every window.
                 let should_broadcast = {
                     let inner = app_state.read();
-                    inner.broadcast_enabled
-                        && inner.broadcast_keys_enabled
-                        && !modifiers_held()
+                    inner.broadcast_enabled && inner.broadcast_keys_enabled && !modifiers_held()
                 };
                 if should_broadcast {
                     let info = &*(l_param.0 as *const KBDLLHOOKSTRUCT);
