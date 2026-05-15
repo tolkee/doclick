@@ -16,7 +16,8 @@ export const getStateSnapshot = () => invoke<StateSnapshot>("get_state_snapshot"
 export const setBroadcastEnabled = (enabled: boolean) =>
   invoke<void>("set_broadcast_enabled", { enabled });
 
-export const setBroadcastKeys = (keys: number[]) => invoke<void>("set_broadcast_keys", { keys });
+export const setBroadcastKeysEnabled = (enabled: boolean) =>
+  invoke<void>("set_broadcast_keys_enabled", { enabled });
 
 export const setPanicHotkey = (accelerator: string) =>
   invoke<void>("set_panic_hotkey", { accelerator });

@@ -3,16 +3,15 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 
 use crate::state::{
-    default_broadcast_keys, CharacterProfile, InnerState, Orientation, OverlayScale, OverlaySizes,
-    ShortcutBindings,
+    CharacterProfile, InnerState, Orientation, OverlayScale, OverlaySizes, ShortcutBindings,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PersistedConfig {
     #[serde(default)]
     pub profiles: Vec<CharacterProfile>,
-    #[serde(default)]
-    pub broadcast_keys: Vec<u32>,
+    #[serde(default = "default_true")]
+    pub broadcast_keys_enabled: bool,
     #[serde(default = "default_panic_hotkey")]
     pub panic_hotkey: String,
     #[serde(default)]
@@ -41,13 +40,17 @@ fn default_panic_hotkey() -> String {
     "Ctrl+Shift+F12".into()
 }
 
+fn default_true() -> bool {
+    true
+}
+
 impl Default for PersistedConfig {
     fn default() -> Self {
         let mut shortcuts = ShortcutBindings::default();
         shortcuts.ensure_focus_char_slots();
         Self {
             profiles: Vec::new(),
-            broadcast_keys: default_broadcast_keys(),
+            broadcast_keys_enabled: true,
             panic_hotkey: default_panic_hotkey(),
             pvp_warning_acknowledged: false,
             overlay_position: None,
@@ -67,7 +70,7 @@ impl PersistedConfig {
     pub fn from_inner(inner: &InnerState) -> Self {
         Self {
             profiles: inner.profiles.clone(),
-            broadcast_keys: inner.broadcast_keys.clone(),
+            broadcast_keys_enabled: inner.broadcast_keys_enabled,
             panic_hotkey: inner.panic_hotkey.clone(),
             pvp_warning_acknowledged: inner.pvp_warning_acknowledged,
             overlay_position: inner.overlay_position,
@@ -96,9 +99,6 @@ pub fn load(app_data_dir: &Path) -> PersistedConfig {
     };
     match serde_json::from_slice::<PersistedConfig>(&bytes) {
         Ok(mut cfg) => {
-            if cfg.broadcast_keys.is_empty() {
-                cfg.broadcast_keys = default_broadcast_keys();
-            }
             cfg.shortcuts.ensure_focus_char_slots();
             cfg
         }

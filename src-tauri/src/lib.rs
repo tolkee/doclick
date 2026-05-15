@@ -63,7 +63,7 @@ pub fn run() {
             commands::list_windows,
             commands::get_state_snapshot,
             commands::set_broadcast_enabled,
-            commands::set_broadcast_keys,
+            commands::set_broadcast_keys_enabled,
             commands::set_panic_hotkey,
             commands::upsert_profile,
             commands::delete_profile,
@@ -96,9 +96,7 @@ pub fn run() {
                     let cfg = config::load(&dir);
                     let mut inner = app_state.write();
                     inner.profiles = cfg.profiles;
-                    if !cfg.broadcast_keys.is_empty() {
-                        inner.broadcast_keys = cfg.broadcast_keys;
-                    }
+                    inner.broadcast_keys_enabled = cfg.broadcast_keys_enabled;
                     inner.panic_hotkey = cfg.panic_hotkey;
                     inner.pvp_warning_acknowledged = cfg.pvp_warning_acknowledged;
                     inner.overlay_position = cfg.overlay_position;

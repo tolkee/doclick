@@ -141,8 +141,8 @@ pub struct InnerState {
     pub profiles: Vec<CharacterProfile>,
     pub live_windows: Vec<LiveWindow>,
     pub broadcast_enabled: bool,
-    pub broadcast_keys: Vec<u32>, // virtual-key codes whitelisted for relay
-    pub panic_hotkey: String,     // accelerator string, e.g. "Ctrl+Shift+F12"
+    pub broadcast_keys_enabled: bool,
+    pub panic_hotkey: String, // accelerator string, e.g. "Ctrl+Shift+F12"
     pub pvp_warning_acknowledged: bool,
     pub overlay_position: Option<(i32, i32)>,
     pub overlay_sizes: OverlaySizes,
@@ -170,7 +170,7 @@ impl Default for InnerState {
             profiles: Vec::new(),
             live_windows: Vec::new(),
             broadcast_enabled: false,
-            broadcast_keys: default_broadcast_keys(),
+            broadcast_keys_enabled: true,
             panic_hotkey: "Ctrl+Shift+F12".into(),
             pvp_warning_acknowledged: false,
             overlay_position: None,
@@ -186,25 +186,6 @@ impl Default for InnerState {
             last_update_check: None,
         }
     }
-}
-
-pub fn default_broadcast_keys() -> Vec<u32> {
-    use windows::Win32::UI::Input::KeyboardAndMouse::*;
-    vec![
-        VK_SPACE.0 as u32,
-        VK_RETURN.0 as u32,
-        VK_ESCAPE.0 as u32,
-        VK_0.0 as u32,
-        VK_1.0 as u32,
-        VK_2.0 as u32,
-        VK_3.0 as u32,
-        VK_4.0 as u32,
-        VK_5.0 as u32,
-        VK_6.0 as u32,
-        VK_7.0 as u32,
-        VK_8.0 as u32,
-        VK_9.0 as u32,
-    ]
 }
 
 #[derive(Debug, Clone)]
@@ -329,7 +310,7 @@ pub struct StateSnapshot {
     pub windows: Vec<WindowEntry>,
     pub profiles: Vec<CharacterProfile>,
     pub broadcast_enabled: bool,
-    pub broadcast_keys: Vec<u32>,
+    pub broadcast_keys_enabled: bool,
     pub panic_hotkey: String,
     pub pvp_warning_acknowledged: bool,
     pub main_character_id: Option<String>,
@@ -347,7 +328,7 @@ impl InnerState {
             windows,
             profiles: self.profiles.clone(),
             broadcast_enabled: self.broadcast_enabled,
-            broadcast_keys: self.broadcast_keys.clone(),
+            broadcast_keys_enabled: self.broadcast_keys_enabled,
             panic_hotkey: self.panic_hotkey.clone(),
             pvp_warning_acknowledged: self.pvp_warning_acknowledged,
             main_character_id: self.main_character_id.clone(),
