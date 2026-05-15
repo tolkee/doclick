@@ -98,12 +98,12 @@ pub fn set_broadcast_enabled(
 }
 
 #[tauri::command]
-pub fn set_broadcast_keys(
+pub fn set_broadcast_keys_enabled(
     app: AppHandle,
     state: State<'_, AppState>,
-    keys: Vec<u32>,
+    enabled: bool,
 ) -> Result<(), CmdError> {
-    state.write().broadcast_keys = keys;
+    state.write().broadcast_keys_enabled = enabled;
     persist(&app, &state)?;
     Ok(())
 }

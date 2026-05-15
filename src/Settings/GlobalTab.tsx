@@ -13,6 +13,8 @@ export function GlobalTab({ onNavigate }: Props) {
   const setOrientation = useDoclickStore((s) => s.setOrientation);
   const overlayScale = useDoclickStore((s) => s.overlayScale);
   const setOverlayScale = useDoclickStore((s) => s.setOverlayScale);
+  const broadcastKeysEnabled = useDoclickStore((s) => s.broadcastKeysEnabled);
+  const setBroadcastKeysEnabled = useDoclickStore((s) => s.setBroadcastKeysEnabled);
   const profiles = useDoclickStore((s) => s.profiles);
   const windows = useDoclickStore((s) => s.windows);
 
@@ -76,6 +78,17 @@ export function GlobalTab({ onNavigate }: Props) {
           <ToggleGroupItem value="small">Petit</ToggleGroupItem>
           <ToggleGroupItem value="medium">Moyen</ToggleGroupItem>
           <ToggleGroupItem value="large">Grand</ToggleGroupItem>
+        </ToggleGroup>
+      </Row>
+
+      <Row label="Reproduire les frappes clavier">
+        <ToggleGroup
+          type="single"
+          value={broadcastKeysEnabled ? "on" : "off"}
+          onValueChange={(v) => v && setBroadcastKeysEnabled(v === "on")}
+        >
+          <ToggleGroupItem value="on">Activé</ToggleGroupItem>
+          <ToggleGroupItem value="off">Désactivé</ToggleGroupItem>
         </ToggleGroup>
       </Row>
     </div>

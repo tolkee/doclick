@@ -28,7 +28,7 @@ interface DoclickState {
   overlaySizes: OverlaySizes;
   settingsSize: [number, number] | null;
   shortcuts: ShortcutBindings;
-  broadcastKeys: number[];
+  broadcastKeysEnabled: boolean;
   focusedHwnd: number | null;
   lastError: string | null;
   /// True once `hydrate()` has completed at least once. Effects that
@@ -63,7 +63,7 @@ interface DoclickState {
   saveSettingsSize: (width: number, height: number) => Promise<void>;
   setShortcuts: (shortcuts: ShortcutBindings) => Promise<void>;
   setPanicHotkey: (accelerator: string) => Promise<void>;
-  setBroadcastKeys: (keys: number[]) => Promise<void>;
+  setBroadcastKeysEnabled: (enabled: boolean) => Promise<void>;
 }
 
 export const useDoclickStore = create<DoclickState>((set, get) => ({
@@ -81,7 +81,7 @@ export const useDoclickStore = create<DoclickState>((set, get) => ({
   overlaySizes: { horizontal: null, vertical: null },
   settingsSize: null,
   shortcuts: EMPTY_SHORTCUT_BINDINGS,
-  broadcastKeys: [],
+  broadcastKeysEnabled: true,
   focusedHwnd: null,
   lastError: null,
   hydrated: false,
@@ -111,7 +111,7 @@ export const useDoclickStore = create<DoclickState>((set, get) => ({
       overlaySizes: snap.overlay_sizes ?? { horizontal: null, vertical: null },
       settingsSize: snap.settings_size ?? null,
       shortcuts,
-      broadcastKeys: snap.broadcast_keys,
+      broadcastKeysEnabled: snap.broadcast_keys_enabled,
       hydrated: true,
     });
   },
@@ -182,9 +182,9 @@ export const useDoclickStore = create<DoclickState>((set, get) => ({
     await cmd.setPanicHotkey(accelerator);
     set({ panicHotkey: accelerator });
   },
-  setBroadcastKeys: async (keys) => {
-    await cmd.setBroadcastKeys(keys);
-    set({ broadcastKeys: keys });
+  setBroadcastKeysEnabled: async (enabled) => {
+    await cmd.setBroadcastKeysEnabled(enabled);
+    set({ broadcastKeysEnabled: enabled });
   },
   checkForUpdate: async () => {
     try {

@@ -64,7 +64,7 @@ export interface StateSnapshot {
   windows: WindowEntry[];
   profiles: CharacterProfile[];
   broadcast_enabled: boolean;
-  broadcast_keys: number[];
+  broadcast_keys_enabled: boolean;
   panic_hotkey: string;
   pvp_warning_acknowledged: boolean;
   main_character_id: string | null;

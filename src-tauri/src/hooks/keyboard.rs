@@ -23,16 +23,15 @@ pub unsafe extern "system" fn ll_kbd_proc(
         let msg = w_param.0 as u32;
         if (msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN) && !is_dispatching() {
             if let Some(app_state) = state() {
-                let (broadcast_on, in_whitelist) = {
+                // Modifier combos (Ctrl/Alt/Win+X) keep their app-local meaning —
+                // broadcasting Ctrl+C would replicate "copy" across every window.
+                let should_broadcast = {
                     let inner = app_state.read();
-                    let info = &*(l_param.0 as *const KBDLLHOOKSTRUCT);
-                    let vk = info.vkCode;
-                    (
-                        inner.broadcast_enabled && !modifiers_held(),
-                        inner.broadcast_keys.contains(&vk),
-                    )
+                    inner.broadcast_enabled
+                        && inner.broadcast_keys_enabled
+                        && !modifiers_held()
                 };
-                if broadcast_on && in_whitelist {
+                if should_broadcast {
                     let info = &*(l_param.0 as *const KBDLLHOOKSTRUCT);
                     let vk = info.vkCode;
                     let fg = current_foreground();
