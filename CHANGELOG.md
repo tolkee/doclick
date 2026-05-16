@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.13.0](https://github.com/tolkee/doclick/compare/v0.12.1...v0.13.0) (2026-05-16)
+
+
+### Features
+
+* broadcast every key while broadcast is on, gated by a settings toggle ([86b7d82](https://github.com/tolkee/doclick/commit/86b7d82d084b670f55894c168a90b3dd48535e18))
+* prompt user to crown a meneur with a full-overlay CTA ([0863ac4](https://github.com/tolkee/doclick/commit/0863ac4aae6507b930ca90183c029b04f7f48478))
+
 ## [0.12.1](https://github.com/tolkee/doclick/compare/v0.12.0...v0.12.1) (2026-05-14)
 
 
