@@ -5,6 +5,7 @@ import { BroadcastToggle } from "./components/BroadcastToggle";
 import { KebabButton } from "./components/KebabButton";
 import { PanicIndicator } from "./components/PanicIndicator";
 import { ResizeHandles } from "./components/ResizeHandles";
+import { SelectMainCharacterOverlay } from "./components/SelectMainCharacterOverlay";
 import { VerticalOverlayChrome } from "./components/VerticalOverlayChrome";
 import { openSettings, saveOverlayPosition } from "./ipc/commands";
 import {
@@ -134,6 +135,7 @@ export default function App() {
             <BroadcastToggle />
           </div>
         </div>
+        <SelectMainCharacterOverlay onOpenCharacters={openCharacters} />
         <PanicIndicator />
         <ResizeHandles mode="overlay-vertical" />
       </div>
@@ -161,6 +163,7 @@ export default function App() {
         <div className="w-px h-8 bg-border/60 mx-1" />
         <KebabButton anchor="below-right" />
       </div>
+      <SelectMainCharacterOverlay onOpenCharacters={openCharacters} />
       <PanicIndicator />
       <ResizeHandles mode="overlay-horizontal" />
     </div>
