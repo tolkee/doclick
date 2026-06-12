@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import type {
   CharacterProfile,
+  DispatchSpeed,
   Orientation,
   OverlayScale,
   SettingsTabId,
@@ -57,6 +58,9 @@ export const setOrientation = (orientation: Orientation) =>
 
 export const setOverlayScale = (scale: OverlayScale) =>
   invoke<void>("set_overlay_scale", { scale });
+
+export const setDispatchSpeed = (speed: DispatchSpeed) =>
+  invoke<void>("set_dispatch_speed", { speed });
 
 export const setShortcuts = (shortcuts: ShortcutBindings) =>
   invoke<void>("set_shortcuts", { shortcuts });

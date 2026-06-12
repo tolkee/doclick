@@ -14,8 +14,7 @@ mod travel;
 mod windows;
 
 use crate::events::{
-    BroadcastStatePayload, FocusedWindowChangedPayload, UpdateState, UpdateStatePayload,
-    WindowsChangedPayload, EVT_PREFS_CHANGED, EVT_UPDATE_STATE,
+    BroadcastStatePayload, UpdateState, UpdateStatePayload, EVT_PREFS_CHANGED, EVT_UPDATE_STATE,
 };
 use crate::state::{AppState, BroadcastReason, Orientation};
 use crate::windows::geometry::enable_per_monitor_dpi_awareness;
@@ -79,6 +78,7 @@ pub fn run() {
             commands::set_profile_order,
             commands::set_orientation,
             commands::set_overlay_scale,
+            commands::set_dispatch_speed,
             commands::set_shortcuts,
             commands::focus_character_at_index,
             commands::focus_next_character,
@@ -109,6 +109,7 @@ pub fn run() {
                     inner.overlay_scale = cfg.overlay_scale;
                     inner.shortcuts = cfg.shortcuts;
                     inner.shortcuts.ensure_focus_char_slots();
+                    inner.dispatch_speed = cfg.dispatch_speed;
                     let saved_size = match inner.orientation {
                         Orientation::Horizontal => inner.overlay_sizes.horizontal,
                         Orientation::Vertical => inner.overlay_sizes.vertical,
@@ -123,8 +124,9 @@ pub fn run() {
                     (None, None, None, None)
                 };
 
-            // Window enumeration — sync init must precede `overlay.show()`.
-            spawn_window_watcher(handle.clone(), app_state.clone());
+            // Event-driven window list + focus tracking (WinEvent hooks).
+            // Its sync initial enumeration must precede `overlay.show()`.
+            windows::watcher::start(handle.clone(), app_state.clone());
 
             // Restore overlay position + size if previously saved, then show
             // the window. The overlay starts hidden in tauri.conf.json so the
@@ -166,6 +168,11 @@ pub fn run() {
                 }
             }
 
+            // Unblock get_state_snapshot only now: config is in state, the
+            // initial enumeration ran, and both windows sit at their saved
+            // geometry — the webview's first hydrate can't observe defaults.
+            app_state.mark_config_loaded();
+
             // Hook thread (low-level mouse + keyboard).
             hooks::install(app_state.clone(), handle.clone());
 
@@ -175,20 +182,16 @@ pub fn run() {
             // Foreground watchdog (auto-disable when no Dofus window is focused for ~5s).
             spawn_foreground_watchdog(handle.clone(), app_state.clone());
 
-            // Focus tracker (emits which tracked Dofus window is focused, for the avatar bar).
-            spawn_focus_tracker(handle.clone(), app_state.clone());
-
             // Register all configured global shortcuts (includes panic hotkey).
             shortcuts::reregister_all(&handle, &app_state);
 
             // Background updater check (~30s after startup, throttled to 6h).
             spawn_update_check(handle.clone(), app_state.clone());
 
-            // One-shot re-hydrate ping ~750ms after launch. Covers the Tauri 2
-            // startup race where the webview's very first `get_state_snapshot`
-            // can resolve against partial state (config/window writes happen
-            // synchronously in setup but the listener attaching for the catch-
-            // up emit isn't ready until React mounts post-paint).
+            // One-shot re-hydrate ping ~750ms after launch. The config-loaded
+            // latch already guarantees the first snapshot is complete; this
+            // catches events emitted before React attached its listeners
+            // (windows-changed between hydrate and subscription).
             spawn_boot_rehydrate(handle.clone());
 
             Ok(())
@@ -201,41 +204,6 @@ pub fn run() {
     }
 }
 
-fn spawn_window_watcher(app: tauri::AppHandle, state: AppState) {
-    // Sync initial enum so the webview's first `get_state_snapshot` sees
-    // pre-existing Dofus windows. Without this they stay invisible until
-    // an HWND-level change forces the async loop's next delta-emit.
-    let initial = windows::enumerate::enumerate_dofus_windows();
-    let initial_signature: Vec<(isize, String)> =
-        initial.iter().map(|w| (w.hwnd, w.title.clone())).collect();
-    state.write().live_windows = initial;
-
-    tauri::async_runtime::spawn(async move {
-        let mut last_signature = initial_signature;
-        let mut interval = tokio::time::interval(Duration::from_millis(1500));
-        loop {
-            interval.tick().await;
-            let live = windows::enumerate::enumerate_dofus_windows();
-            let signature: Vec<(isize, String)> =
-                live.iter().map(|w| (w.hwnd, w.title.clone())).collect();
-            let changed = signature != last_signature;
-            {
-                let mut inner = state.write();
-                inner.live_windows = live;
-            }
-            if changed {
-                last_signature = signature;
-                let _ = app.emit(
-                    events::EVT_WINDOWS_CHANGED,
-                    WindowsChangedPayload {
-                        windows: state.snapshot_windows(),
-                    },
-                );
-            }
-        }
-    });
-}
-
 /// Emits `EVT_PREFS_CHANGED` once, ~750ms after launch. The overlay's
 /// `App.tsx` wires `onPrefsChanged` to a full `hydrate()`, so this guarantees
 /// a second snapshot round-trip after React has mounted and its listeners
@@ -245,29 +213,6 @@ fn spawn_boot_rehydrate(app: tauri::AppHandle) {
     tauri::async_runtime::spawn(async move {
         tokio::time::sleep(Duration::from_millis(750)).await;
         let _ = app.emit(EVT_PREFS_CHANGED, ());
-    });
-}
-
-fn spawn_focus_tracker(app: tauri::AppHandle, state: AppState) {
-    tauri::async_runtime::spawn(async move {
-        let mut interval = tokio::time::interval(Duration::from_millis(200));
-        // `None` = "not yet emitted"; `Some(None)` = "last emitted: no tracked window".
-        let mut last: Option<Option<isize>> = None;
-        loop {
-            interval.tick().await;
-            let fg = windows::focus::current_foreground();
-            let known = state.all_hwnds();
-            let current = if known.contains(&fg) { Some(fg) } else { None };
-            if last != Some(current) {
-                last = Some(current);
-                let _ = app.emit(
-                    events::EVT_FOCUSED_WINDOW_CHANGED,
-                    FocusedWindowChangedPayload {
-                        focused_hwnd: current,
-                    },
-                );
-            }
-        }
     });
 }
 

@@ -93,6 +93,20 @@ pub enum OverlayScale {
     Large,
 }
 
+/// How aggressively the dispatcher paces the focus-cycle. The inter-step
+/// delays exist because Unity drops input that arrives before a window has
+/// settled focus; "safe" grows them for setups where clicks get lost.
+/// Concrete values live next to the dispatcher (`timings_for`).
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum DispatchSpeed {
+    /// "turbo" existed briefly on pre-release builds; coerce it silently.
+    #[default]
+    #[serde(alias = "turbo")]
+    Normal,
+    Safe,
+}
+
 /// Persisted user-resized overlay dimensions, per orientation. Stored in
 /// logical pixels so the size is DPI-independent across reboots / monitor
 /// swaps. Each orientation's resize handle only adjusts the main axis
@@ -153,6 +167,7 @@ pub struct InnerState {
     pub orientation: Orientation,
     pub overlay_scale: OverlayScale,
     pub shortcuts: ShortcutBindings,
+    pub dispatch_speed: DispatchSpeed,
     /// Runtime-only — never persisted. Guards against concurrent
     /// `check_for_update` invocations (user mashes the manual button while
     /// the startup check is still in flight).
@@ -182,19 +197,51 @@ impl Default for InnerState {
             orientation: Orientation::default(),
             overlay_scale: OverlayScale::default(),
             shortcuts,
+            dispatch_speed: DispatchSpeed::default(),
             update_check_in_flight: false,
             last_update_check: None,
         }
     }
 }
 
+impl InnerState {
+    /// The imported profile matching a live window, if any. Single source of
+    /// truth for profile resolution — every "is this window tracked?" check
+    /// must go through here.
+    pub fn profile_for(&self, title: &str, pid: u32) -> Option<&CharacterProfile> {
+        self.profiles.iter().find(|p| p.matches_window(title, pid))
+    }
+
+    /// HWNDs of every live Dofus window linked to an imported profile.
+    pub fn tracked_hwnds(&self) -> Vec<isize> {
+        self.live_windows
+            .iter()
+            .filter(|w| self.profile_for(&w.title, w.pid).is_some())
+            .map(|w| w.hwnd)
+            .collect()
+    }
+}
+
 #[derive(Debug, Clone)]
-pub struct AppState(Arc<RwLock<InnerState>>);
+pub struct AppState(Arc<RwLock<InnerState>>, Arc<ConfigReady>);
 
 impl Default for AppState {
     fn default() -> Self {
-        Self(Arc::new(RwLock::new(InnerState::default())))
+        Self(
+            Arc::new(RwLock::new(InnerState::default())),
+            Arc::new(ConfigReady::default()),
+        )
     }
+}
+
+/// One-shot "persisted config is loaded and applied" latch, flipped by
+/// `setup` once. Snapshot reads await it so the webview's first hydrate can
+/// never observe default state — without this the overlay briefly painted at
+/// default size before snapping to the saved one.
+#[derive(Debug, Default)]
+pub struct ConfigReady {
+    flag: std::sync::atomic::AtomicBool,
+    notify: tokio::sync::Notify,
 }
 
 impl AppState {
@@ -204,6 +251,24 @@ impl AppState {
 
     pub fn write(&self) -> parking_lot::RwLockWriteGuard<'_, InnerState> {
         self.0.write()
+    }
+
+    pub fn mark_config_loaded(&self) {
+        self.1
+            .flag
+            .store(true, std::sync::atomic::Ordering::Release);
+        self.1.notify.notify_waiters();
+    }
+
+    /// Resolves once `mark_config_loaded` has run. Immediate afterwards.
+    pub async fn config_loaded(&self) {
+        // Create the notified future before re-checking the flag so a
+        // notify_waiters firing in between cannot be lost.
+        let notified = self.1.notify.notified();
+        if self.1.flag.load(std::sync::atomic::Ordering::Acquire) {
+            return;
+        }
+        notified.await;
     }
 
     /// Resolve every live window against profiles for the React store.
@@ -219,11 +284,7 @@ impl AppState {
                 class_name: w.class_name.clone(),
                 dofus_class: w.dofus_class.clone(),
                 character_name: w.character_name.clone(),
-                profile: inner
-                    .profiles
-                    .iter()
-                    .find(|p| p.matches_window(&w.title, w.pid))
-                    .cloned(),
+                profile: inner.profile_for(&w.title, w.pid).cloned(),
             })
             .collect()
     }
@@ -234,19 +295,9 @@ impl AppState {
     /// Every tracked Dofus window other than `source_hwnd` counts as a
     /// target as long as it matches an imported profile.
     pub fn broadcast_targets(&self, source_hwnd: isize) -> Vec<isize> {
-        let inner = self.0.read();
-        inner
-            .live_windows
-            .iter()
-            .filter(|w| w.hwnd != source_hwnd)
-            .filter(|w| {
-                inner
-                    .profiles
-                    .iter()
-                    .any(|p| p.matches_window(&w.title, w.pid))
-            })
-            .map(|w| w.hwnd)
-            .collect()
+        let mut targets = self.all_hwnds();
+        targets.retain(|h| *h != source_hwnd);
+        targets
     }
 
     /// HWND of the live window matching `main_character_id`, if any.
@@ -265,41 +316,27 @@ impl AppState {
 
     /// All Dofus HWNDs we know about that are linked to an imported profile.
     pub fn all_hwnds(&self) -> Vec<isize> {
-        let inner = self.0.read();
-        inner
-            .live_windows
-            .iter()
-            .filter(|w| {
-                inner
-                    .profiles
-                    .iter()
-                    .any(|p| p.matches_window(&w.title, w.pid))
-            })
-            .map(|w| w.hwnd)
-            .collect()
+        self.0.read().tracked_hwnds()
     }
 
     /// Visible windows ordered by `profile_order`. Only windows linked to an
     /// imported profile are included.
     pub fn ordered_visible_hwnds(&self) -> Vec<isize> {
         let inner = self.0.read();
-        let mut items: Vec<(isize, Option<usize>, String)> = inner
+        let mut items: Vec<(isize, Option<usize>, &str)> = inner
             .live_windows
             .iter()
             .filter_map(|w| {
-                let profile = inner
-                    .profiles
-                    .iter()
-                    .find(|p| p.matches_window(&w.title, w.pid))?;
+                let profile = inner.profile_for(&w.title, w.pid)?;
                 let idx = inner.profile_order.iter().position(|id| id == &profile.id);
-                Some((w.hwnd, idx, w.title.clone()))
+                Some((w.hwnd, idx, w.title.as_str()))
             })
             .collect();
         items.sort_by(|a, b| match (a.1, b.1) {
             (Some(x), Some(y)) => x.cmp(&y),
             (Some(_), None) => std::cmp::Ordering::Less,
             (None, Some(_)) => std::cmp::Ordering::Greater,
-            (None, None) => a.2.cmp(&b.2),
+            (None, None) => a.2.cmp(b.2),
         });
         items.into_iter().map(|(h, _, _)| h).collect()
     }
@@ -320,6 +357,7 @@ pub struct StateSnapshot {
     pub overlay_sizes: OverlaySizes,
     pub settings_size: Option<(u32, u32)>,
     pub shortcuts: ShortcutBindings,
+    pub dispatch_speed: DispatchSpeed,
 }
 
 impl InnerState {
@@ -338,6 +376,7 @@ impl InnerState {
             overlay_sizes: self.overlay_sizes,
             settings_size: self.settings_size,
             shortcuts: self.shortcuts.clone(),
+            dispatch_speed: self.dispatch_speed,
         }
     }
 }

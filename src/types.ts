@@ -4,6 +4,9 @@ export type Orientation = "horizontal" | "vertical";
 
 export type OverlayScale = "small" | "medium" | "large";
 
+/// Pacing preset for the broadcast dispatcher (see DispatchSpeed in Rust).
+export type DispatchSpeed = "normal" | "safe";
+
 export type SettingsTabId = "global" | "characters" | "shortcuts" | "about";
 
 export type MatchStrategy =
@@ -74,6 +77,7 @@ export interface StateSnapshot {
   overlay_sizes: OverlaySizes;
   settings_size: [number, number] | null;
   shortcuts: ShortcutBindings;
+  dispatch_speed: DispatchSpeed;
 }
 
 export type BroadcastReason = "user" | "auto-disabled-foreground-mismatch" | "panic-hotkey";

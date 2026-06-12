@@ -3,12 +3,45 @@ pub mod mouse;
 
 use once_cell::sync::OnceCell;
 use tauri::AppHandle;
+use windows::Win32::UI::Input::KeyboardAndMouse::{
+    GetAsyncKeyState, VIRTUAL_KEY, VK_CONTROL, VK_LWIN, VK_MENU, VK_RWIN, VK_SHIFT,
+};
 use windows::Win32::UI::WindowsAndMessaging::{
     DispatchMessageW, GetMessageW, SetWindowsHookExW, TranslateMessage, UnhookWindowsHookEx, MSG,
     WH_KEYBOARD_LL, WH_MOUSE_LL,
 };
 
+use crate::shortcuts::{MOD_ALT, MOD_CTRL, MOD_META, MOD_SHIFT};
 use crate::state::AppState;
+
+/// Marker stamped into `dwExtraInfo` of every synthetic input doclick sends
+/// (broadcast replays, focus-priming Alt taps, travel keys). The LL hooks
+/// skip events carrying it — without this, the Alt tap that `focus_window`
+/// fires to earn focus-stealing rights is itself caught by the keyboard hook
+/// and re-broadcast, focus-cycling every window on a simple focus shortcut.
+pub(crate) const SELF_INJECTED: usize = 0xD0C11C;
+
+/// Currently held modifiers as a MOD_* bitmask. Shared by both LL hook
+/// callbacks for shortcut matching.
+pub(crate) fn current_modifiers() -> u8 {
+    unsafe {
+        let pressed = |vk: VIRTUAL_KEY| (GetAsyncKeyState(vk.0 as i32) as u16) & 0x8000 != 0;
+        let mut m = 0u8;
+        if pressed(VK_CONTROL) {
+            m |= MOD_CTRL;
+        }
+        if pressed(VK_SHIFT) {
+            m |= MOD_SHIFT;
+        }
+        if pressed(VK_MENU) {
+            m |= MOD_ALT;
+        }
+        if pressed(VK_LWIN) || pressed(VK_RWIN) {
+            m |= MOD_META;
+        }
+        m
+    }
+}
 
 static GLOBAL_STATE: OnceCell<AppState> = OnceCell::new();
 static APP_HANDLE: OnceCell<AppHandle> = OnceCell::new();

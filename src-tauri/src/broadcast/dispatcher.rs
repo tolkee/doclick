@@ -12,7 +12,7 @@ use windows::Win32::UI::Input::KeyboardAndMouse::{
 };
 
 use crate::events::{BroadcastTickPayload, ErrorPayload, EVT_BROADCAST_TICK, EVT_ERROR};
-use crate::state::AppState;
+use crate::state::{AppState, DispatchSpeed};
 use crate::windows::focus::{current_foreground, focus_window};
 use crate::windows::geometry::screen_to_absolute;
 
@@ -21,28 +21,58 @@ use super::BroadcastJob;
 
 const QUEUE_CAPACITY: usize = 4;
 const FOREGROUND_WAIT: Duration = Duration::from_millis(120);
-/// Delay between the user's click and the first follower focus, so the source
-/// window finishes processing DOWN+UP before we steal focus.
-const PRE_DISPATCH_DELAY: Duration = Duration::from_millis(80);
-/// Some games ignore zero-duration clicks; real human clicks are ~30-50ms.
-const CLICK_DOWN_UP_GAP: Duration = Duration::from_millis(20);
-/// Hold the follower foreground after sending input so its message pump can
-/// ingest the click before we steal focus to the next target. Roughly 2-3
-/// frames at 30 FPS — Dofus dips below that during loading screens.
-const POST_SEND_HOLD: Duration = Duration::from_millis(80);
 /// Times we re-check the foreground after `focus_with_retries` succeeds and
 /// re-focus on drift. Single-shot recovery isn't enough: the FG can re-drift
 /// in the microseconds between recovery and SendInput.
 const DRIFT_RECOVERY_TRIES: u32 = 3;
-/// Minimum gap between confirming foreground on the target and firing
-/// SendInput, so the target's pump can drain WM_ACTIVATE / WM_SETFOCUS first.
-/// Without this, Unity sees the window as "not yet focused" when the click
-/// arrives and silently drops the input.
-const POST_FOCUS_SETTLE: Duration = Duration::from_millis(30);
-/// Gap between the synthetic mouse-move and the LEFTDOWN. Splitting move
-/// from press lets the game update hover state on one frame before the press
-/// lands on the next; combining them loses clicks during focus transitions.
-const MOVE_TO_DOWN_GAP: Duration = Duration::from_millis(10);
+
+/// Inter-step pacing of one dispatch cycle. Each delay exists because Unity
+/// silently drops input that arrives before the window has settled — see the
+/// field docs. The "normal" preset is the long-standing tuned default; "safe"
+/// scales it up for lossy setups.
+#[derive(Debug, Clone, Copy)]
+struct Timings {
+    /// Delay between the user's click and the first follower focus, so the
+    /// source window finishes processing DOWN+UP before we steal focus.
+    pre_dispatch: Duration,
+    /// Minimum gap between confirming foreground on the target and firing
+    /// SendInput, so the target's pump can drain WM_ACTIVATE / WM_SETFOCUS
+    /// first. Without this, Unity sees the window as "not yet focused" when
+    /// the click arrives and silently drops the input.
+    post_focus_settle: Duration,
+    /// Gap between the synthetic mouse-move and the LEFTDOWN. Splitting move
+    /// from press lets the game update hover state on one frame before the
+    /// press lands on the next; combining them loses clicks during focus
+    /// transitions.
+    move_to_down: Duration,
+    /// Some games ignore zero-duration clicks; real human clicks are ~30-50ms.
+    click_down_up: Duration,
+    /// Hold the follower foreground after sending input so its message pump
+    /// can ingest the click before we steal focus to the next target. The
+    /// normal preset is roughly 2-3 frames at 30 FPS — Dofus dips below that
+    /// during loading screens.
+    post_send_hold: Duration,
+}
+
+fn timings_for(speed: DispatchSpeed) -> Timings {
+    let ms = Duration::from_millis;
+    match speed {
+        DispatchSpeed::Normal => Timings {
+            pre_dispatch: ms(80),
+            post_focus_settle: ms(30),
+            move_to_down: ms(10),
+            click_down_up: ms(20),
+            post_send_hold: ms(80),
+        },
+        DispatchSpeed::Safe => Timings {
+            pre_dispatch: ms(150),
+            post_focus_settle: ms(60),
+            move_to_down: ms(15),
+            click_down_up: ms(30),
+            post_send_hold: ms(140),
+        },
+    }
+}
 
 static SENDER: OnceCell<Sender<BroadcastJob>> = OnceCell::new();
 static DISPATCHING: AtomicBool = AtomicBool::new(false);
@@ -83,7 +113,10 @@ fn run(app: AppHandle, state: AppState, rx: Receiver<BroadcastJob>) {
             BroadcastJob::Key { source_hwnd, .. } => *source_hwnd,
         };
         let targets = state.broadcast_targets(source_hwnd);
-        let broadcast_on = state.read().broadcast_enabled;
+        let (broadcast_on, timings) = {
+            let inner = state.read();
+            (inner.broadcast_enabled, timings_for(inner.dispatch_speed))
+        };
         tracing::debug!(
             ?job,
             broadcast_on,
@@ -115,17 +148,17 @@ fn run(app: AppHandle, state: AppState, rx: Receiver<BroadcastJob>) {
         // blocks on a fresh user click rather than serving stale ones.
         while rx.try_recv().is_ok() {}
 
-        std::thread::sleep(PRE_DISPATCH_DELAY);
+        std::thread::sleep(timings.pre_dispatch);
 
         let mut ok = 0usize;
         let mut failed = 0usize;
         for target in &targets {
-            if dispatch_one(&app, &job, source_hwnd, *target) {
+            if dispatch_one(&app, &job, source_hwnd, *target, &timings) {
                 ok += 1;
             } else {
                 failed += 1;
             }
-            std::thread::sleep(POST_SEND_HOLD);
+            std::thread::sleep(timings.post_send_hold);
         }
 
         tracing::debug!(ok, failed, "dispatcher: job complete");
@@ -151,6 +184,7 @@ fn dispatch_one(
     job: &BroadcastJob,
     source_hwnd: isize,
     target_hwnd: isize,
+    timings: &Timings,
 ) -> bool {
     // Translate before focusing the target. translate_click doesn't need the
     // target foreground, and pulling it out shrinks the critical window
@@ -214,7 +248,7 @@ fn dispatch_one(
         return false;
     }
 
-    std::thread::sleep(POST_FOCUS_SETTLE);
+    std::thread::sleep(timings.post_focus_settle);
 
     match job {
         BroadcastJob::Click { .. } => {
@@ -222,7 +256,7 @@ fn dispatch_one(
             // for Key jobs it returns None and we never reach this arm.
             #[allow(clippy::expect_used)]
             let (tx, ty) = translated_click.expect("pre-translated for Click jobs");
-            let ok = send_click(tx, ty);
+            let ok = send_click(tx, ty, timings);
             if !ok {
                 tracing::warn!(
                     target = format!("{target_hwnd:#x}"),
@@ -265,7 +299,7 @@ fn focus_with_retries(target_hwnd: isize) -> bool {
     focus_window(target_hwnd, FOREGROUND_WAIT * 2)
 }
 
-fn send_click(screen_x: i32, screen_y: i32) -> bool {
+fn send_click(screen_x: i32, screen_y: i32, timings: &Timings) -> bool {
     let (dx, dy) = screen_to_absolute(screen_x, screen_y);
     let mv = [mouse_input(
         dx,
@@ -284,9 +318,9 @@ fn send_click(screen_x: i32, screen_y: i32) -> bool {
     )];
     let cb = std::mem::size_of::<INPUT>() as i32;
     let move_ok = unsafe { SendInput(&mv, cb) == 1 };
-    std::thread::sleep(MOVE_TO_DOWN_GAP);
+    std::thread::sleep(timings.move_to_down);
     let down_ok = unsafe { SendInput(&down, cb) == 1 };
-    std::thread::sleep(CLICK_DOWN_UP_GAP);
+    std::thread::sleep(timings.click_down_up);
     let up_ok = unsafe { SendInput(&up, cb) == 1 };
     move_ok && down_ok && up_ok
 }
@@ -305,7 +339,7 @@ fn mouse_input(
                 mouseData: 0,
                 dwFlags: flags,
                 time: 0,
-                dwExtraInfo: 0,
+                dwExtraInfo: crate::hooks::SELF_INJECTED,
             },
         },
     }
@@ -351,7 +385,7 @@ fn keyboard_input(vk: u16, scan: u16, flags: KEYBD_EVENT_FLAGS) -> INPUT {
                 wScan: scan,
                 dwFlags: flags,
                 time: 0,
-                dwExtraInfo: 0,
+                dwExtraInfo: crate::hooks::SELF_INJECTED,
             },
         },
     }

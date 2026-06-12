@@ -3,6 +3,7 @@ import * as cmd from "../ipc/commands";
 import {
   type BroadcastReason,
   type CharacterProfile,
+  type DispatchSpeed,
   EMPTY_SHORTCUT_BINDINGS,
   type Orientation,
   type OverlayScale,
@@ -29,6 +30,7 @@ interface DoclickState {
   settingsSize: [number, number] | null;
   shortcuts: ShortcutBindings;
   broadcastKeysEnabled: boolean;
+  dispatchSpeed: DispatchSpeed;
   focusedHwnd: number | null;
   lastError: string | null;
   /// True once `hydrate()` has completed at least once. Effects that
@@ -43,10 +45,6 @@ interface DoclickState {
   updateError: string | null;
 
   hydrate: () => Promise<void>;
-  setWindows: (w: WindowEntry[]) => void;
-  setBroadcast: (enabled: boolean, reason: BroadcastReason | null) => void;
-  setBroadcastLive: (live: boolean) => void;
-  setError: (msg: string | null) => void;
   checkForUpdate: () => Promise<void>;
   installUpdate: () => Promise<void>;
 
@@ -64,6 +62,7 @@ interface DoclickState {
   setShortcuts: (shortcuts: ShortcutBindings) => Promise<void>;
   setPanicHotkey: (accelerator: string) => Promise<void>;
   setBroadcastKeysEnabled: (enabled: boolean) => Promise<void>;
+  setDispatchSpeed: (speed: DispatchSpeed) => Promise<void>;
 }
 
 export const useDoclickStore = create<DoclickState>((set, get) => ({
@@ -82,6 +81,7 @@ export const useDoclickStore = create<DoclickState>((set, get) => ({
   settingsSize: null,
   shortcuts: EMPTY_SHORTCUT_BINDINGS,
   broadcastKeysEnabled: true,
+  dispatchSpeed: "normal",
   focusedHwnd: null,
   lastError: null,
   hydrated: false,
@@ -112,14 +112,10 @@ export const useDoclickStore = create<DoclickState>((set, get) => ({
       settingsSize: snap.settings_size ?? null,
       shortcuts,
       broadcastKeysEnabled: snap.broadcast_keys_enabled,
+      dispatchSpeed: snap.dispatch_speed ?? "normal",
       hydrated: true,
     });
   },
-
-  setWindows: (w) => set({ windows: w }),
-  setBroadcast: (enabled, reason) => set({ broadcastEnabled: enabled, broadcastReason: reason }),
-  setBroadcastLive: (live) => set({ broadcastLive: live }),
-  setError: (msg) => set({ lastError: msg }),
 
   toggleBroadcast: async () => {
     const next = !get().broadcastEnabled;
@@ -185,6 +181,10 @@ export const useDoclickStore = create<DoclickState>((set, get) => ({
   setBroadcastKeysEnabled: async (enabled) => {
     await cmd.setBroadcastKeysEnabled(enabled);
     set({ broadcastKeysEnabled: enabled });
+  },
+  setDispatchSpeed: async (speed) => {
+    await cmd.setDispatchSpeed(speed);
+    set({ dispatchSpeed: speed });
   },
   checkForUpdate: async () => {
     try {

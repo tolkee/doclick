@@ -2,7 +2,7 @@ import { ArrowRight } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
 import { useDoclickStore } from "../store/useDoclickStore";
-import type { Orientation, OverlayScale, SettingsTabId } from "../types";
+import type { DispatchSpeed, Orientation, OverlayScale, SettingsTabId } from "../types";
 
 interface Props {
   onNavigate: (tab: SettingsTabId) => void;
@@ -15,6 +15,8 @@ export function GlobalTab({ onNavigate }: Props) {
   const setOverlayScale = useDoclickStore((s) => s.setOverlayScale);
   const broadcastKeysEnabled = useDoclickStore((s) => s.broadcastKeysEnabled);
   const setBroadcastKeysEnabled = useDoclickStore((s) => s.setBroadcastKeysEnabled);
+  const dispatchSpeed = useDoclickStore((s) => s.dispatchSpeed);
+  const setDispatchSpeed = useDoclickStore((s) => s.setDispatchSpeed);
   const profiles = useDoclickStore((s) => s.profiles);
   const windows = useDoclickStore((s) => s.windows);
 
@@ -91,14 +93,39 @@ export function GlobalTab({ onNavigate }: Props) {
           <ToggleGroupItem value="off">Désactivé</ToggleGroupItem>
         </ToggleGroup>
       </Row>
+
+      <Row
+        label="Vitesse de diffusion"
+        hint="Prudente espace davantage les actions — utilisez-la si des clics se perdent sur certains comptes."
+      >
+        <ToggleGroup
+          type="single"
+          value={dispatchSpeed}
+          onValueChange={(v) => v && setDispatchSpeed(v as DispatchSpeed)}
+        >
+          <ToggleGroupItem value="normal">Normale</ToggleGroupItem>
+          <ToggleGroupItem value="safe">Prudente</ToggleGroupItem>
+        </ToggleGroup>
+      </Row>
     </div>
   );
 }
 
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
+function Row({
+  label,
+  hint,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className="flex items-center justify-between gap-4 py-2">
-      <span className="text-sm">{label}</span>
+      <div className="flex max-w-sm flex-col gap-1">
+        <span className="text-sm">{label}</span>
+        {hint && <span className="text-xs text-muted-foreground">{hint}</span>}
+      </div>
       {children}
     </div>
   );

@@ -74,6 +74,8 @@ src-tauri/            Rust backend
     commands.rs       Tauri command surface
     events.rs         event payload types
     windows/          enumerate / geometry / focus (SetForegroundWindow trick)
+      watcher.rs      WinEvent-driven window-list + foreground tracking
+      organize.rs     auto-stack tracked windows when broadcast turns on
     hooks/            WH_MOUSE_LL / WH_KEYBOARD_LL on a dedicated thread
     broadcast/        focus-cycle dispatcher + proportional coord translation
 ```

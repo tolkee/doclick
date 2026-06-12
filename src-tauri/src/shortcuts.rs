@@ -4,7 +4,7 @@
 // the call sites readable.
 #![allow(clippy::unwrap_used)]
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Mutex;
 
 use once_cell::sync::Lazy;
@@ -55,6 +55,17 @@ static REGISTERED: Lazy<Mutex<HashMap<Shortcut, ShortcutAction>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
 static MOUSE_REGISTERED: Lazy<Mutex<HashMap<MouseShortcut, ShortcutAction>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
+/// Registered keyboard shortcuts as (modifier bitmask, virtual-key) pairs.
+/// The keyboard hook consults this so a key the user bound to an app action
+/// (e.g. "F1" = focus char 1) keeps that meaning instead of also being
+/// replayed on every follower while key broadcast is on.
+static RESERVED_KEYS: Lazy<Mutex<HashSet<(u8, u32)>>> = Lazy::new(|| Mutex::new(HashSet::new()));
+
+/// True when (mods, vk) matches a registered keyboard shortcut. Called from
+/// the low-level keyboard hook.
+pub fn is_reserved_key(mods: u8, vk: u32) -> bool {
+    RESERVED_KEYS.lock().unwrap().contains(&(mods, vk))
+}
 
 /// Re-register every configured shortcut. Idempotent: unregisters the previous
 /// set first so the registry stays clean across config changes. Keyboard
@@ -66,71 +77,62 @@ pub fn reregister_all(app: &AppHandle, state: &AppState) {
     let _ = gs.unregister_all();
     REGISTERED.lock().unwrap().clear();
     MOUSE_REGISTERED.lock().unwrap().clear();
+    RESERVED_KEYS.lock().unwrap().clear();
 
     let (panic_accel, bindings) = {
         let inner = state.read();
         (inner.panic_hotkey.clone(), inner.shortcuts.clone())
     };
 
-    let mut new_kbd: HashMap<Shortcut, ShortcutAction> = HashMap::new();
-    let mut new_mouse: HashMap<MouseShortcut, ShortcutAction> = HashMap::new();
-    register_one(
-        app,
-        &panic_accel,
-        ShortcutAction::PanicHotkey,
-        &mut new_kbd,
-        &mut new_mouse,
-    );
-    register_bindings(app, &bindings, &mut new_kbd, &mut new_mouse);
+    let mut new = Registry::default();
+    register_one(app, &panic_accel, ShortcutAction::PanicHotkey, &mut new);
+    register_bindings(app, &bindings, &mut new);
 
-    *REGISTERED.lock().unwrap() = new_kbd;
-    *MOUSE_REGISTERED.lock().unwrap() = new_mouse;
+    *REGISTERED.lock().unwrap() = new.kbd;
+    *MOUSE_REGISTERED.lock().unwrap() = new.mouse;
+    *RESERVED_KEYS.lock().unwrap() = new.reserved;
 }
 
-fn register_bindings(
-    app: &AppHandle,
-    b: &ShortcutBindings,
-    kbd: &mut HashMap<Shortcut, ShortcutAction>,
-    mouse: &mut HashMap<MouseShortcut, ShortcutAction>,
-) {
+#[derive(Default)]
+struct Registry {
+    kbd: HashMap<Shortcut, ShortcutAction>,
+    mouse: HashMap<MouseShortcut, ShortcutAction>,
+    reserved: HashSet<(u8, u32)>,
+}
+
+fn register_bindings(app: &AppHandle, b: &ShortcutBindings, reg: &mut Registry) {
     if let Some(a) = b.toggle_broadcast.as_deref() {
-        register_one(app, a, ShortcutAction::ToggleBroadcast, kbd, mouse);
+        register_one(app, a, ShortcutAction::ToggleBroadcast, reg);
     }
     if let Some(a) = b.open_settings.as_deref() {
-        register_one(app, a, ShortcutAction::OpenSettings, kbd, mouse);
+        register_one(app, a, ShortcutAction::OpenSettings, reg);
     }
     if let Some(a) = b.close_app.as_deref() {
-        register_one(app, a, ShortcutAction::CloseApp, kbd, mouse);
+        register_one(app, a, ShortcutAction::CloseApp, reg);
     }
     if let Some(a) = b.close_all.as_deref() {
-        register_one(app, a, ShortcutAction::CloseAll, kbd, mouse);
+        register_one(app, a, ShortcutAction::CloseAll, reg);
     }
     for (i, slot) in b.focus_char.iter().enumerate() {
         if let Some(a) = slot.as_deref() {
-            register_one(app, a, ShortcutAction::FocusChar(i), kbd, mouse);
+            register_one(app, a, ShortcutAction::FocusChar(i), reg);
         }
     }
     if let Some(a) = b.focus_next.as_deref() {
-        register_one(app, a, ShortcutAction::FocusNext, kbd, mouse);
+        register_one(app, a, ShortcutAction::FocusNext, reg);
     }
     if let Some(a) = b.focus_prev.as_deref() {
-        register_one(app, a, ShortcutAction::FocusPrev, kbd, mouse);
+        register_one(app, a, ShortcutAction::FocusPrev, reg);
     }
     if let Some(a) = b.focus_main.as_deref() {
-        register_one(app, a, ShortcutAction::FocusMain, kbd, mouse);
+        register_one(app, a, ShortcutAction::FocusMain, reg);
     }
     if let Some(a) = b.send_travel_command.as_deref() {
-        register_one(app, a, ShortcutAction::SendTravelCommand, kbd, mouse);
+        register_one(app, a, ShortcutAction::SendTravelCommand, reg);
     }
 }
 
-fn register_one(
-    app: &AppHandle,
-    accel: &str,
-    action: ShortcutAction,
-    kbd: &mut HashMap<Shortcut, ShortcutAction>,
-    mouse: &mut HashMap<MouseShortcut, ShortcutAction>,
-) {
+fn register_one(app: &AppHandle, accel: &str, action: ShortcutAction, reg: &mut Registry) {
     if accel.is_empty() {
         return;
     }
@@ -142,25 +144,28 @@ fn register_one(
         }
     };
     match parsed {
-        ParsedShortcut::Keyboard(s) => {
-            if kbd.contains_key(&s) {
+        ParsedShortcut::Keyboard { shortcut, mods, vk } => {
+            if reg.kbd.contains_key(&shortcut) {
                 tracing::warn!(
                     accel,
                     ?action,
                     "duplicate keyboard shortcut, last write wins"
                 );
             }
-            if let Err(err) = app.global_shortcut().register(s) {
+            if let Err(err) = app.global_shortcut().register(shortcut) {
                 tracing::warn!(?err, accel, ?action, "failed to register keyboard shortcut");
                 return;
             }
-            kbd.insert(s, action);
+            reg.kbd.insert(shortcut, action);
+            if let Some(vk) = vk {
+                reg.reserved.insert((mods, vk));
+            }
         }
         ParsedShortcut::Mouse(m) => {
-            if mouse.contains_key(&m) {
+            if reg.mouse.contains_key(&m) {
                 tracing::warn!(accel, ?action, "duplicate mouse shortcut, last write wins");
             }
-            mouse.insert(m, action);
+            reg.mouse.insert(m, action);
         }
     }
 }
@@ -238,6 +243,10 @@ pub fn run_action(app: &AppHandle, action: ShortcutAction) {
                 inner.broadcast_enabled = !inner.broadcast_enabled;
                 inner.broadcast_enabled
             };
+            // Same rising-edge auto-stack as the set_broadcast_enabled command.
+            if new_enabled {
+                crate::windows::organize::organize(&state.ordered_visible_hwnds());
+            }
             let _ = app_handle.emit(
                 EVT_BROADCAST_STATE,
                 BroadcastStatePayload {
@@ -280,7 +289,14 @@ pub fn run_action(app: &AppHandle, action: ShortcutAction) {
 }
 
 pub enum ParsedShortcut {
-    Keyboard(Shortcut),
+    Keyboard {
+        shortcut: Shortcut,
+        /// MOD_* bitmask + virtual-key mirror of `shortcut`, for the
+        /// reserved-key check in the keyboard hook. `vk` is `None` for the
+        /// rare codes without a stable VK mapping.
+        mods: u8,
+        vk: Option<u32>,
+    },
     Mouse(MouseShortcut),
 }
 
@@ -325,7 +341,76 @@ pub fn parse_shortcut(s: &str) -> Option<ParsedShortcut> {
         }));
     }
     let key = key?;
-    Some(ParsedShortcut::Keyboard(Shortcut::new(Some(mods_kbd), key)))
+    Some(ParsedShortcut::Keyboard {
+        shortcut: Shortcut::new(Some(mods_kbd), key),
+        mods: mods_mouse,
+        vk: vk_from_code(key),
+    })
+}
+
+fn vk_from_code(code: Code) -> Option<u32> {
+    use Code::*;
+    Some(match code {
+        F1 => 0x70,
+        F2 => 0x71,
+        F3 => 0x72,
+        F4 => 0x73,
+        F5 => 0x74,
+        F6 => 0x75,
+        F7 => 0x76,
+        F8 => 0x77,
+        F9 => 0x78,
+        F10 => 0x79,
+        F11 => 0x7A,
+        F12 => 0x7B,
+        Escape => 0x1B,
+        Space => 0x20,
+        Enter => 0x0D,
+        Tab => 0x09,
+        Backspace => 0x08,
+        Delete => 0x2E,
+        ArrowLeft => 0x25,
+        ArrowUp => 0x26,
+        ArrowRight => 0x27,
+        ArrowDown => 0x28,
+        Digit0 => 0x30,
+        Digit1 => 0x31,
+        Digit2 => 0x32,
+        Digit3 => 0x33,
+        Digit4 => 0x34,
+        Digit5 => 0x35,
+        Digit6 => 0x36,
+        Digit7 => 0x37,
+        Digit8 => 0x38,
+        Digit9 => 0x39,
+        KeyA => 0x41,
+        KeyB => 0x42,
+        KeyC => 0x43,
+        KeyD => 0x44,
+        KeyE => 0x45,
+        KeyF => 0x46,
+        KeyG => 0x47,
+        KeyH => 0x48,
+        KeyI => 0x49,
+        KeyJ => 0x4A,
+        KeyK => 0x4B,
+        KeyL => 0x4C,
+        KeyM => 0x4D,
+        KeyN => 0x4E,
+        KeyO => 0x4F,
+        KeyP => 0x50,
+        KeyQ => 0x51,
+        KeyR => 0x52,
+        KeyS => 0x53,
+        KeyT => 0x54,
+        KeyU => 0x55,
+        KeyV => 0x56,
+        KeyW => 0x57,
+        KeyX => 0x58,
+        KeyY => 0x59,
+        KeyZ => 0x5A,
+        _ => return None,
+    })
 }
 
 fn mouse_trigger_from_str(s: &str) -> Option<MouseTrigger> {

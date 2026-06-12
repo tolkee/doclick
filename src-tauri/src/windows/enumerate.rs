@@ -1,10 +1,10 @@
-use std::path::PathBuf;
+use std::collections::{HashMap, HashSet};
+use std::path::Path;
 
-use windows::core::BOOL;
-use windows::Win32::Foundation::{HWND, LPARAM, MAX_PATH};
-use windows::Win32::System::ProcessStatus::GetModuleBaseNameW;
+use windows::core::{BOOL, PWSTR};
+use windows::Win32::Foundation::{CloseHandle, HWND, LPARAM, MAX_PATH};
 use windows::Win32::System::Threading::{
-    OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_VM_READ,
+    OpenProcess, QueryFullProcessImageNameW, PROCESS_NAME_WIN32, PROCESS_QUERY_LIMITED_INFORMATION,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
     EnumWindows, GetClassNameW, GetWindowTextLengthW, GetWindowTextW, GetWindowThreadProcessId,
@@ -20,25 +20,50 @@ use crate::state::LiveWindow;
 /// verified against an actual Dofus 3 install with Process Explorer.
 pub(crate) const DOFUS_PROCESS_NAMES: &[&str] = &["Dofus.exe", "DofusInvoker.exe"];
 
+/// Cache of pid → process basename (`None` = readable but not resolvable, so
+/// we don't retry every pass). Owned by the window watcher and reused across
+/// enumeration passes — without it every pass pays an `OpenProcess` +
+/// image-name query for every visible top-level window on the system.
+/// Entries whose pid wasn't seen in the latest pass are evicted, which keeps
+/// the map bounded and defuses pid-reuse aliasing.
+#[derive(Debug, Default)]
+pub struct PidNameCache(HashMap<u32, Option<String>>);
+
+impl PidNameCache {
+    fn basename(&mut self, pid: u32) -> Option<&str> {
+        self.0
+            .entry(pid)
+            .or_insert_with(|| process_basename(pid))
+            .as_deref()
+    }
+}
+
+struct EnumCtx<'a> {
+    found: Vec<LiveWindow>,
+    seen_pids: HashSet<u32>,
+    cache: &'a mut PidNameCache,
+}
+
 /// Enumerate every visible top-level window owned by a Dofus process.
-pub fn enumerate_dofus_windows() -> Vec<LiveWindow> {
-    let mut found: Vec<LiveWindow> = Vec::new();
-    let user_param = LPARAM(&mut found as *mut _ as isize);
+pub fn enumerate_dofus_windows(cache: &mut PidNameCache) -> Vec<LiveWindow> {
+    let mut ctx = EnumCtx {
+        found: Vec::new(),
+        seen_pids: HashSet::new(),
+        cache,
+    };
+    let user_param = LPARAM(&mut ctx as *mut EnumCtx as isize);
     unsafe {
         let _ = EnumWindows(Some(enum_proc), user_param);
     }
-    found
+    let seen = ctx.seen_pids;
+    ctx.cache.0.retain(|pid, _| seen.contains(pid));
+    ctx.found
 }
 
 unsafe extern "system" fn enum_proc(hwnd: HWND, lparam: LPARAM) -> BOOL {
-    let acc = &mut *(lparam.0 as *mut Vec<LiveWindow>);
+    let ctx = &mut *(lparam.0 as *mut EnumCtx);
 
     if !IsWindowVisible(hwnd).as_bool() {
-        return true.into();
-    }
-
-    let title = read_window_title(hwnd);
-    if title.is_empty() {
         return true.into();
     }
 
@@ -47,23 +72,27 @@ unsafe extern "system" fn enum_proc(hwnd: HWND, lparam: LPARAM) -> BOOL {
     if pid == 0 {
         return true.into();
     }
+    ctx.seen_pids.insert(pid);
 
-    let exe = match process_basename(pid) {
-        Some(name) => name,
-        None => return true.into(),
+    let is_dofus = match ctx.cache.basename(pid) {
+        Some(exe) => DOFUS_PROCESS_NAMES
+            .iter()
+            .any(|n| n.eq_ignore_ascii_case(exe)),
+        None => false,
     };
-    if !DOFUS_PROCESS_NAMES
-        .iter()
-        .any(|n| n.eq_ignore_ascii_case(&exe))
-    {
+    if !is_dofus {
+        return true.into();
+    }
+
+    let title = read_window_title(hwnd);
+    if title.is_empty() {
         return true.into();
     }
 
     let class_name = read_class_name(hwnd);
-    let dofus_class = parse_dofus_class(&title);
-    let character_name = parse_character_name(&title);
+    let (character_name, dofus_class) = parse_title(&title);
 
-    acc.push(LiveWindow {
+    ctx.found.push(LiveWindow {
         hwnd: hwnd.0 as isize,
         pid,
         title,
@@ -75,35 +104,21 @@ unsafe extern "system" fn enum_proc(hwnd: HWND, lparam: LPARAM) -> BOOL {
     true.into()
 }
 
-/// Parse the Dofus class slug from a window title.
+/// Parse `(character_name, class_slug)` from a Dofus window title.
 ///
 /// Title format observed in Dofus 3 is `<name> - <class> - <version> - Release`.
-/// We split on " - " and return the second segment lowercased and ASCII-folded
-/// (so "Crâ" → "cra", matching `public/avatars/cra.jpg`).
-pub fn parse_dofus_class(title: &str) -> Option<String> {
+/// Both pieces are `None` unless the title has at least 4 " - " segments, so
+/// the launcher and other auxiliary Dofus-process windows parse to nothing.
+/// The class slug is lowercased and ASCII-folded ("Crâ" → "cra") to match the
+/// avatar asset names under `public/avatars/`.
+fn parse_title(title: &str) -> (Option<String>, Option<String>) {
     let parts: Vec<&str> = title.split(" - ").collect();
     if parts.len() < 4 {
-        return None;
+        return (None, None);
     }
-    let raw = parts[1].trim();
-    if raw.is_empty() {
-        return None;
-    }
-    Some(fold_ascii_lower(raw))
-}
-
-/// Extract the character name (first " - "-delimited segment) from a Dofus title.
-pub fn parse_character_name(title: &str) -> Option<String> {
-    let parts: Vec<&str> = title.split(" - ").collect();
-    if parts.len() < 4 {
-        return None;
-    }
-    let name = parts[0].trim();
-    if name.is_empty() {
-        None
-    } else {
-        Some(name.to_string())
-    }
+    let name = Some(parts[0].trim()).filter(|s| !s.is_empty());
+    let class = Some(parts[1].trim()).filter(|s| !s.is_empty());
+    (name.map(str::to_string), class.map(fold_ascii_lower))
 }
 
 fn fold_ascii_lower(s: &str) -> String {
@@ -148,22 +163,25 @@ fn read_class_name(hwnd: HWND) -> String {
     }
 }
 
+/// Resolve a process's executable basename via
+/// `QueryFullProcessImageNameW`, which only needs
+/// `PROCESS_QUERY_LIMITED_INFORMATION` — unlike `GetModuleBaseNameW`
+/// (`PROCESS_VM_READ`), it also works when Dofus runs elevated and
+/// doclick doesn't.
 pub(crate) fn process_basename(pid: u32) -> Option<String> {
     unsafe {
-        let handle = OpenProcess(
-            PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ,
-            false,
-            pid,
-        )
-        .or_else(|_| OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid))
-        .ok()?;
+        let handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid).ok()?;
         let mut buf = vec![0u16; MAX_PATH as usize];
-        let copied = GetModuleBaseNameW(handle, None, &mut buf);
-        let _ = windows::Win32::Foundation::CloseHandle(handle);
-        if copied == 0 {
-            return None;
-        }
-        let s = String::from_utf16_lossy(&buf[..copied as usize]);
-        Some(PathBuf::from(s).file_name()?.to_string_lossy().to_string())
+        let mut len = buf.len() as u32;
+        let res = QueryFullProcessImageNameW(
+            handle,
+            PROCESS_NAME_WIN32,
+            PWSTR(buf.as_mut_ptr()),
+            &mut len,
+        );
+        let _ = CloseHandle(handle);
+        res.ok()?;
+        let path = String::from_utf16_lossy(&buf[..len as usize]);
+        Some(Path::new(&path).file_name()?.to_string_lossy().into_owned())
     }
 }

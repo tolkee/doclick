@@ -1,7 +1,4 @@
 use windows::Win32::Foundation::{LPARAM, LRESULT, WPARAM};
-use windows::Win32::UI::Input::KeyboardAndMouse::{
-    GetAsyncKeyState, VIRTUAL_KEY, VK_CONTROL, VK_LWIN, VK_MENU, VK_RWIN, VK_SHIFT,
-};
 use windows::Win32::UI::WindowsAndMessaging::{
     CallNextHookEx, HC_ACTION, MSLLHOOKSTRUCT, WM_LBUTTONUP, WM_MBUTTONDOWN, WM_MOUSEWHEEL,
     WM_XBUTTONDOWN,
@@ -11,11 +8,11 @@ use crate::broadcast::{
     dispatcher::{is_dispatching, try_enqueue},
     BroadcastJob,
 };
-use crate::shortcuts::{self, MouseShortcut, MouseTrigger, MOD_ALT, MOD_CTRL, MOD_META, MOD_SHIFT};
+use crate::shortcuts::{self, MouseShortcut, MouseTrigger};
 use crate::windows::focus::current_foreground;
 use crate::windows::geometry::screen_point_in_client;
 
-use super::{app_handle, state};
+use super::{app_handle, current_modifiers, state};
 
 pub unsafe extern "system" fn ll_mouse_proc(
     n_code: i32,
@@ -50,7 +47,9 @@ pub unsafe extern "system" fn ll_mouse_proc(
 
         // Trigger on UP, not DOWN, so the source window finishes processing
         // DOWN+UP before the dispatcher steals focus to the targets.
-        if msg == WM_LBUTTONUP && !is_dispatching() {
+        let self_injected =
+            (*(l_param.0 as *const MSLLHOOKSTRUCT)).dwExtraInfo == super::SELF_INJECTED;
+        if msg == WM_LBUTTONUP && !is_dispatching() && !self_injected {
             if let Some(app_state) = state() {
                 // Snapshot in a single read-lock so we don't hold the lock
                 // across the Win32 syscalls below. LL hooks have a
@@ -61,18 +60,7 @@ pub unsafe extern "system" fn ll_mouse_proc(
                     if !inner.broadcast_enabled {
                         (false, Vec::new())
                     } else {
-                        let known: Vec<isize> = inner
-                            .live_windows
-                            .iter()
-                            .filter(|w| {
-                                inner
-                                    .profiles
-                                    .iter()
-                                    .any(|p| p.matches_window(&w.title, w.pid))
-                            })
-                            .map(|w| w.hwnd)
-                            .collect();
-                        (true, known)
+                        (true, inner.tracked_hwnds())
                     }
                 };
                 if broadcast_on {
@@ -140,25 +128,5 @@ unsafe fn trigger_from_message(msg: u32, l_param: LPARAM) -> Option<MouseTrigger
             }
         }
         _ => None,
-    }
-}
-
-fn current_modifiers() -> u8 {
-    unsafe {
-        let pressed = |vk: VIRTUAL_KEY| (GetAsyncKeyState(vk.0 as i32) as u16) & 0x8000 != 0;
-        let mut m = 0u8;
-        if pressed(VK_CONTROL) {
-            m |= MOD_CTRL;
-        }
-        if pressed(VK_SHIFT) {
-            m |= MOD_SHIFT;
-        }
-        if pressed(VK_MENU) {
-            m |= MOD_ALT;
-        }
-        if pressed(VK_LWIN) || pressed(VK_RWIN) {
-            m |= MOD_META;
-        }
-        m
     }
 }

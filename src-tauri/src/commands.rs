@@ -15,8 +15,8 @@ use crate::events::{
     EVT_PREFS_CHANGED, EVT_UPDATE_PROGRESS, EVT_UPDATE_STATE, EVT_WINDOWS_CHANGED,
 };
 use crate::state::{
-    AppState, BroadcastReason, CharacterProfile, Orientation, OverlayScale, ShortcutBindings,
-    StateSnapshot, WindowEntry,
+    AppState, BroadcastReason, CharacterProfile, DispatchSpeed, Orientation, OverlayScale,
+    ShortcutBindings, StateSnapshot, WindowEntry,
 };
 use crate::windows::focus::focus_window;
 
@@ -24,8 +24,6 @@ use crate::windows::focus::focus_window;
 pub enum CmdError {
     #[error("io: {0}")]
     Io(String),
-    #[error("invalid: {0}")]
-    Invalid(String),
     #[error("updater: {0}")]
     Updater(String),
 }
@@ -62,6 +60,9 @@ fn emit_windows_changed(app: &AppHandle, state: &AppState) {
             windows: state.snapshot_windows(),
         },
     );
+    // Profile changes flip windows between tracked/untracked, so the
+    // "which tracked window is focused" answer may have changed too.
+    crate::windows::watcher::nudge_focus();
 }
 
 fn emit_prefs_changed(app: &AppHandle) {
@@ -80,10 +81,14 @@ pub fn list_windows(state: State<'_, AppState>) -> Vec<WindowEntry> {
     state.snapshot_windows()
 }
 
+/// Async on purpose: awaits the config-loaded latch so the webview's first
+/// hydrate (which can race `setup` on a cold start) never observes default
+/// state and resizes the overlay to wrong dimensions.
 #[tauri::command]
-pub fn get_state_snapshot(state: State<'_, AppState>) -> StateSnapshot {
+pub async fn get_state_snapshot(state: State<'_, AppState>) -> Result<StateSnapshot, CmdError> {
+    state.config_loaded().await;
     let windows = state.snapshot_windows();
-    state.read().to_snapshot(windows)
+    Ok(state.read().to_snapshot(windows))
 }
 
 #[tauri::command]
@@ -92,7 +97,18 @@ pub fn set_broadcast_enabled(
     state: State<'_, AppState>,
     enabled: bool,
 ) -> Result<(), CmdError> {
-    state.write().broadcast_enabled = enabled;
+    let turned_on = {
+        let mut inner = state.write();
+        let was = inner.broadcast_enabled;
+        inner.broadcast_enabled = enabled;
+        enabled && !was
+    };
+    // Stacked windows are the supported broadcast geometry — organize on
+    // every rising edge so the user never broadcasts across a scattered
+    // layout.
+    if turned_on {
+        crate::windows::organize::organize(&state.ordered_visible_hwnds());
+    }
     emit_broadcast_state(&app, enabled, BroadcastReason::User);
     Ok(())
 }
@@ -196,16 +212,15 @@ pub fn save_overlay_position(
 pub fn save_overlay_size(
     app: AppHandle,
     state: State<'_, AppState>,
-    orientation: String,
+    orientation: Orientation,
     width: u32,
     height: u32,
 ) -> Result<(), CmdError> {
     {
         let mut inner = state.write();
-        match orientation.as_str() {
-            "horizontal" => inner.overlay_sizes.horizontal = Some((width, height)),
-            "vertical" => inner.overlay_sizes.vertical = Some((width, height)),
-            other => return Err(CmdError::Invalid(format!("orientation={other}"))),
+        match orientation {
+            Orientation::Horizontal => inner.overlay_sizes.horizontal = Some((width, height)),
+            Orientation::Vertical => inner.overlay_sizes.vertical = Some((width, height)),
         }
     }
     persist(&app, &state)?;
@@ -300,14 +315,21 @@ pub fn set_profile_order(
 pub fn set_orientation(
     app: AppHandle,
     state: State<'_, AppState>,
-    orientation: String,
+    orientation: Orientation,
 ) -> Result<(), CmdError> {
-    let parsed = match orientation.as_str() {
-        "horizontal" => Orientation::Horizontal,
-        "vertical" => Orientation::Vertical,
-        other => return Err(CmdError::Invalid(format!("orientation={other}"))),
-    };
-    state.write().orientation = parsed;
+    state.write().orientation = orientation;
+    persist(&app, &state)?;
+    emit_prefs_changed(&app);
+    Ok(())
+}
+
+#[tauri::command]
+pub fn set_dispatch_speed(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    speed: DispatchSpeed,
+) -> Result<(), CmdError> {
+    state.write().dispatch_speed = speed;
     persist(&app, &state)?;
     emit_prefs_changed(&app);
     Ok(())
@@ -317,15 +339,9 @@ pub fn set_orientation(
 pub fn set_overlay_scale(
     app: AppHandle,
     state: State<'_, AppState>,
-    scale: String,
+    scale: OverlayScale,
 ) -> Result<(), CmdError> {
-    let parsed = match scale.as_str() {
-        "small" => OverlayScale::Small,
-        "medium" => OverlayScale::Medium,
-        "large" => OverlayScale::Large,
-        other => return Err(CmdError::Invalid(format!("scale={other}"))),
-    };
-    state.write().overlay_scale = parsed;
+    state.write().overlay_scale = scale;
     persist(&app, &state)?;
     emit_prefs_changed(&app);
     Ok(())

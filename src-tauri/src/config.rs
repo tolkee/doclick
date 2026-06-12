@@ -3,7 +3,8 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 
 use crate::state::{
-    CharacterProfile, InnerState, Orientation, OverlayScale, OverlaySizes, ShortcutBindings,
+    CharacterProfile, DispatchSpeed, InnerState, Orientation, OverlayScale, OverlaySizes,
+    ShortcutBindings,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -34,6 +35,8 @@ pub struct PersistedConfig {
     pub overlay_scale: OverlayScale,
     #[serde(default)]
     pub shortcuts: ShortcutBindings,
+    #[serde(default)]
+    pub dispatch_speed: DispatchSpeed,
 }
 
 fn default_panic_hotkey() -> String {
@@ -62,6 +65,7 @@ impl Default for PersistedConfig {
             orientation: Orientation::default(),
             overlay_scale: OverlayScale::default(),
             shortcuts,
+            dispatch_speed: DispatchSpeed::default(),
         }
     }
 }
@@ -82,6 +86,7 @@ impl PersistedConfig {
             orientation: inner.orientation,
             overlay_scale: inner.overlay_scale,
             shortcuts: inner.shortcuts.clone(),
+            dispatch_speed: inner.dispatch_speed,
         }
     }
 }
